@@ -1,0 +1,224 @@
+\ 
+
+
+REQUIRE DUPENDCASE ~mak/case.f
+REQUIRE CS-! ~mak/ext.f
+
+[IFNDEF] C>S
+: C>S ( c -- n )  0xFF AND [ 0x7F INVERT ] LITERAL XOR 0x80 + ;
+[THEN]
+
+[IFNDEF] ANDC : ANDC	INVERT AND ;
+[THEN]
+
+[IFNDEF] LXOR! : LXOR!
+	DUP L@
+ ROT
+ XOR
+ SWAP
+ L! ;
+[THEN]
+
+
+
+BASE @ HEX
+
+   TRUE VALUE TOPT?
+
+: TSET-OPT TRUE TO TOPT? ;
+
+: TDIS-OPT FALSE TO TOPT? ;
+
+0x20 VALUE TMM_SIZE
+
+0 VALUE TOFF-PSP
+
+0 VALUE TTTTTT
+
+\ 0 VALUE T:-SET
+
+0 VALUE TLAST-HERE
+
+: TOP0 DP M@   2 - ;
+: TOP1 DP M@ 2 2* - ;
+: TOP2 DP M@ 3 2* - ;
+: TOP3 DP M@ 4 2* - ;
+: TOP4 DP M@ 5 2* - ;
+: TOP5 DP M@ 6 2* - ;
+: TOP6 DP M@ 7 2* - ;
+: TOP7 DP M@ 8 2* - ;
+: TOP8 DP M@ 9 2* - ;
+
+0 VALUE TOP0W@
+0 VALUE TOP1W@
+
+: ?HOP 0xE800 U< ;
+: ?@HOP W@ ?HOP ;
+
+: ?TSET
+ DP M@
+ DUP TLAST-HERE
+ <>
+ IF DUP TO :-SET  THEN DROP ;
+
+: ?^OP ( addr -- flg )
+\
+  DUP :-SET U< IF DROP FALSE BREAK
+  DUP :-SET =  IF DROP TRUE BREAK
+  2-  \ |..|
+  DUP ?@HOP IF DROP TRUE BREAK
+ DUP
+ :-SET =
+ IF DROP FALSE BREAK
+  2-  \ |..+..|
+ DUP ?@HOP IF DROP FALSE BREAK
+ DUP :-SET =  IF DROP TRUE BREAK
+  2-  \ |..|..+..|
+  ?@HOP \  DUP ?1OP IF DROP TRUE BREAK
+;
+
+
+: SHORT? ( n -- -129 < n < 128 )
+  0x80 + 0x100 U< ;
+
+M\ VECT TDTST  ' DROP TO TDTST
+
+ TRUE VALUE ?C-JMP
+\ FALSE VALUE ?C-JMP
+
+: TOPexcise ( addr -- )
+ DUP 2+
+ TUCK DP M@  - NEGATE
+\ CR ." TOE=" 3DUP H. H. H.
+ CMOVE
+ -2 ALLOT ;
+
+:  1OPexcise    TOP0W@ TOP1 W! -2 ALLOT  ;
+:  2OPexcise    TOP1W@ TOP2 W! 1OPexcise ;
+:  3OPexcise    TOP2 W@ TOP3 W! 2OPexcise ;
+:  4OPexcise    TOP3 W@ TOP4 W! 3OPexcise ;
+
+0 VALUE TOPN
+0 VALUE TOPN@
+2 VALUE XXXSIZE
+0 VALUE XXXLOOPAND
+VECT XXX:DO
+
+: TOS:=? ( u -- flg ) \
+ DROP TRUE ;
+
+BASE ! \eof
+
+: TOPT-RULES  ( ADDR  -- ADDR' FLAG )
+  TOP1 :-SET U< IF TRUE BREAK
+  TOP0 W@ TO TOP0W@
+  TOP1 W@ TO TOP1W@
+M\ -1 TDTST
+   TOP1 ?^OP
+    IF
+
+	TOP1W@ TOS:=?
+	TOP0W@ TOS:=? AND
+IF  M\ 4 TDTST
+	1OPexcise
+    M\ 5 TDTST
+	FALSE
+BREAK
+
+THEN
+
+ TRUE
+;
+
+
+: MTOPT-RULES  ( ADDR  -- ADDR' FLAG )
+\ TOP0 W@ TO TOP0W@
+ TOP3  :-SET U<  IF TRUE BREAK
+
+
+ TRUE
+;
+
+
+: TBOPT-RULES  ( ADDR  -- ADDR' FLAG )
+  TOP1 :-SET U< IF TRUE EXIT THEN
+  TOP0 W@ TO TOP0W@
+  TOP1 W@ TO TOP1W@
+M\ -1 TDTST
+
+  TOP3 :-SET U< IF TRUE EXIT THEN
+
+ TRUE
+;
+
+: -EVEN-PSP
+ ;
+
+: EVEN-PSP ;
+
+: TOPT_  ( -- )
+ BEGIN
+ BEGIN
+  TOPT-RULES UNTIL
+ MTOPT-RULES UNTIL
+
+  EVEN-PSP  ;
+
+: DO_TOPT   ( ADDR -- ADDR' )
+  TOPT? IF TOPT_ THEN ;
+
+: TOPT   ( -- )  'OVER DO_TOPT DROP  ;
+
+: TBOPT_  ( -- )
+  BEGIN
+\   M\ -D TDTST
+ TBOPT-RULES
+ UNTIL
+\   M\ -F TDTST
+  ;
+
+: DO_TBOPT   ( ADDR -- ADDR' )
+  TOPT? IF TBOPT_ THEN ;
+
+: TBOPT   ( -- )  'OVER DO_TBOPT DROP  ;
+
+: TINLINE?  ( CFA -- CFA FLAG )
+ FALSE  EXIT
+;
+
+: T_INLINE,  (  CFA  --  )
+\  ." ^" DUP H. HEX
+	BEGIN
+  DO_TOPT
+  DUP 1- W@      \  CFA  N'
+  DUP 0x4770 = IF 2DROP     EXIT THEN \ BX	R14
+  DUP ?HOP M_WL  W, 2+ REPEAT
+   OVER 1+ W@ 0x10 LSHIFT OR L, 4 +
+	AGAIN
+;
+
+: TOPT_CLOSE
+   EVEN-PSP
+ DP M@
+ TO TLAST-HERE
+ ;
+
+: TOPT; TOPT  TOPT_CLOSE ;
+
+: TOPT_INIT
+  ?TSET
+ -EVEN-PSP ;
+
+: TINLINE, ( CFA --  )
+  TOPT_INIT
+  T_INLINE,
+  TOPT_CLOSE ;
+
+M\  30 VALUE MAXROOL CREATE ROOLSTAT   MAXROOL 1+ CELLS ALLOT
+M\ :  &TDTST  DUP 1 AND 0= IF  DUP MAXROOL 1+ MIN 2*  ROOLSTAT + 1+!  THEN DROP ;  ' &TDTST TO TDTST
+M\ :  RSTAT  MAXROOL 1+ 0 DO CR I H. ROOLSTAT I 2* + L@ . 2 +LOOP  ;
+
+ BASE !
+
+\  38 TDTST 
+\ [ ' DoTDTST TO TDTST ]

@@ -1,0 +1,165 @@
+$3241 W, 0 C, 0 W,
+       0	3241	c.jal	0xFFFFFFFFFFFFF980
+       2	0000		unimp
+       4	7200		c.flw	s0,32(a2)
+S" riscv"  $, 0 C,
+       6	7369		c.lui	t1,-6
+       8	7663 0100	bgeu	zero,a6,0x14
+1 C, $28  C, 0 C, 0 W,
+       C	0028		???
+       E	0000		unimp
+ 5 C,
+      10	7205		c.lui	tp,-31
+ S" rv32i2p0_m2p0_a2p0_f2p0_d2p0_c2p0" $, 0 C,
+      12	3376		???
+      14	6932		???
+      16	7032		???
+      18	5F30		c.lw	a2,120(a4)
+      1A	326D	c.jal	0xFFFFFFFFFFFFF9C4
+      1C	3070		???
+      1E	615F 7032 	L???
+      22	5F30		c.lw	a2,120(a4)
+      24	3266		???
+      26	3070		???
+      28	645F 7032 	L???
+      2C	5F30		c.lw	a2,120(a4)
+      2E	3263 3070 	L???
+      32	0000		unimp
+  ICREATE SEC_NAMES
+ 0 C,
+ HERE SEC_NAMES - CONSTANT shstrtab_n
+ S" .shstrtab"  $, 0 C,
+      34	732E		???
+      36	7368		c.flw	a0,100(a4)
+      38	7274		c.flw	a3,100(a2)
+      3A	6174		c.flw	a3,68(a0)
+      3C	0062		c.slli	zero,24
+  HERE SEC_NAMES - CONSTANT text_n
+ S" .text"  $, 0 C,
+      3E	742E		???
+      40	7865		c.lui	a6,-7
+      42	0074		???
+  HERE SEC_NAMES - CONSTANT .riscv.attributes_n
+ S" .riscv.attributes"  $, 0 C,
+      44	722E		???
+      46	7369		c.lui	t1,-6
+      48	7663 612E	bgeu	t3,s2,0xFFFFFFFFFFFFFE54
+      4C	7474		c.flw	a3,108(s0)
+      4E	6972		???
+      50	7562		???
+      52	6574		c.flw	a3,76(a0)
+      54	0073 0 	L???
+ HERE FILE_OFFSET + $7 + $7 ANDC FILE_OFFSET - MDP! \ $8 align
+      58	0000		unimp
+
+ .( E=) HERE DUP MH. FILE_OFFSET + DUP MH. CONSTANT H_FILE_OFFSET
+ 
+ 0 L, 0 L, 0 L, 0 L, 0 L, 0 L, 0 L, 0 L, 0 L, 0 L,
+      5A	0000		unimp
+      5C	0000		unimp
+      5E	0000		unimp
+      60	0000		unimp
+      62	0000		unimp
+      64	0000		unimp
+      66	0000		unimp
+      68	0000		unimp
+      6A	0000		unimp
+      6C	0000		unimp
+      6E	0000		unimp
+      70	0000		unimp
+      72	0000		unimp
+      74	0000		unimp
+      76	0000		unimp
+      78	0000		unimp
+      7A	0000		unimp
+      7C	0000		unimp
+      7E	0000		unimp
+      80	0000		unimp
+ text_n L,
+      82	000B 0 	L???
+$1 L,		\ type
+      86	0001		c.addi	zero,0
+      88	0000		unimp
+7 L,		\ flg
+      8A	0007 0 	L???
+T-ORG  L,	\ addr
+      8E	0000		unimp
+      90	8000		???
+$1000 L,	\ off
+      92	1000		???
+      94	0000		unimp
+T-SIZE L,	\ size
+      96	495E		c.lwsp	a0,212(sp)
+      98	0000		unimp
+0 L,		\ Lk
+      9A	0000		unimp
+      9C	0000		unimp
+0 L,		\ Inf
+      9E	0000		unimp
+      A0	0000		unimp
+2 L,		\ Al
+      A2	0002		c.slli64	zero
+      A4	0000		unimp
+ 0 L,
+      A6	0000		unimp
+      A8	0000		unimp
+ 
+.riscv.attributes_n L,
+      AA	0011		c.addi	zero,4
+      AC	0000		unimp
+$70000003 L, \ type
+      AE	0003 7000	lb	zero,1792(zero)
+ 0 L,		\ flg
+      B2	0000		unimp
+      B4	0000		unimp
+ 0 L,		\ addr
+      B6	0000		unimp
+      B8	0000		unimp
+ $1000 T-SIZE + L,	\ off
+      BA	595E		c.lwsp	a0,244(sp)
+      BC	0000		unimp
+$33 L,		\ size
+      BE	0033 0000	add	zero,zero,zero
+0 L,		\ Lk
+      C2	0000		unimp
+      C4	0000		unimp
+0 L,		\ Inf
+      C6	0000		unimp
+      C8	0000		unimp
+1 L,		\ Al
+      CA	0001		c.addi	zero,0
+      CC	0000		unimp
+0 L,
+      CE	0000		unimp
+      D0	0000		unimp
+
+1 L,
+      D2	0001		c.addi	zero,0
+      D4	0000		unimp
+3 L,
+      D6	0003 0000	lb	zero,0(zero)
+ 0 L,
+      DA	0000		unimp
+      DC	0000		unimp
+ 0 L,
+      DE	0000		unimp
+      E0	0000		unimp
+ $1000 T-SIZE + $33 + L,
+      E2	5991		c.li	s3,-28
+      E4	0000		unimp
+$23 L,
+      E6	0023 0000	sb	zero,0(zero)
+ 0 L,
+      EA	0000		unimp
+      EC	0000		unimp
+ 0 L,
+      EE	0000		unimp
+      F0	0000		unimp
+ 1 L,
+      F2	0001		c.addi	zero,0
+      F4	0000		unimp
+ 0 L,
+      F6	0000		unimp
+      F8	0000		unimp
+
+  

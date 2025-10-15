@@ -1,0 +1,52 @@
+$3241 W, 0 C, 0 W,
+S" riscv"  $, 0 C,
+1 C, $28  C, 0 C, 0 W,
+ 5 C,
+ S" rv32i2p0_m2p0_a2p0_f2p0_d2p0_c2p0" $, 0 C,
+  ICREATE SEC_NAMES
+ 0 C,
+ HERE SEC_NAMES - CONSTANT shstrtab_n
+ S" .shstrtab"  $, 0 C,
+  HERE SEC_NAMES - CONSTANT text_n
+ S" .text"  $, 0 C,
+  HERE SEC_NAMES - CONSTANT .riscv.attributes_n
+ S" .riscv.attributes"  $, 0 C,
+ HERE FILE_OFFSET + $7 + $7 ANDC FILE_OFFSET - MDP! \ $8 align
+
+ .( E=) HERE DUP MH. FILE_OFFSET + DUP MH. CONSTANT H_FILE_OFFSET
+ 
+ 0 L, 0 L, 0 L, 0 L, 0 L, 0 L, 0 L, 0 L, 0 L, 0 L,
+ text_n L,
+$1 L,		\ type
+7 L,		\ flg
+T-ORG  L,	\ addr
+$1000 L,	\ off
+T-SIZE L,	\ size
+0 L,		\ Lk
+0 L,		\ Inf
+2 L,		\ Al
+ 0 L,
+ 
+.riscv.attributes_n L,
+$70000003 L, \ type
+ 0 L,		\ flg
+ 0 L,		\ addr
+ $1000 T-SIZE + L,	\ off
+$33 L,		\ size
+0 L,		\ Lk
+0 L,		\ Inf
+1 L,		\ Al
+0 L,
+
+1 L,
+3 L,
+ 0 L,
+ 0 L,
+ $1000 T-SIZE + $33 + L,
+$23 L,
+ 0 L,
+ 0 L,
+ 1 L,
+ 0 L,
+
+  

@@ -1,0 +1,393 @@
+
+
+: GET-CURRENT ( -- wid ) \ 94 SEARCH
+  CURRENT @ ;
+
+: SET-CURRENT ( wid -- ) \ 94 SEARCH
+  CURRENT ! ;
+
+T: W, HERE W! 2 ALLOT ;
+T: C, HERE C! 1 ALLOT ;
+
+T: [']  \ 94
+  ' LIT, ; IMMEDIATE
+
+: DUP, 
+	$1471	W, \  	addi	s0,s0,-4
+	$c008	W, \  	sw	a0,0(s0)
+;
+
+: DROP, 
+	$4008	W, \	lw	a0,(s0)
+	$0411	W, \	s0,s0,4
+;
+
+T: EXIT,
+	$4082 W,	\	lw	ra,0(sp)
+	$0111 W,	\	addi	sp,sp,4
+	$8082 W,	\	ret
+;
+
+T: >BODY 4 + ;
+
+: >J-TYPE ( r2 ofset cod -- cod' ) 
+ SWAP HERE -
+ SWAP
+ OVER  $7FE AND $14 << OR
+ OVER  $800 AND 9 << OR
+ OVER  $FF000 AND OR
+ SWAP  $100000 AND $B << OR
+ SWAP	7  << OR
+ ;
+
+: J-TYPE, ( r2 ofset cod -- ) >J-TYPE , ;
+
+: >S, ( addr u -- addr addr1 u )
+  HERE SWAP DUP ALLOT ;
+
+T: S, ( addr u -- ) >S, CMOVE ;
+
+: >S", ( addr u -- addr addr1 u ) 
+ DUP C, >S,   ;
+
+T: S", ( addr u -- ) 
+  >S", CMOVE ;
+
+: CLITERAL,
+  	DUP,
+	DUP 2+ 1 ANDC
+	HERE + 4 +  
+	$A SWAP $6F J-TYPE, \ jal a0,_
+	S",
+	HERE 1 AND IF 0 C, THEN
+;
+
+: CLITERAL
+  STATE @  IF CLITERAL,  THEN   ; IMMEDIATE
+
+: SLITERAL
+  STATE @  IF CLITERAL, ['] COUNT COMPILE,  THEN   ; IMMEDIATE
+
+\ 0 VALUE S"PTC?
+
+T: S"  ( "ccc<quote>" --- )
+\ Parse a string delimited by " and compile the following runtime semantics.
+\ Runtime: ( --- c-addr u) Return start address and length of that string.
+  '"' PARSE
+  [COMPILE] SLITERAL
+ ; IMMEDIATE
+
+: Z"  ( "ccc<quote>" --- )
+\ Parse a string delimited by " and compile the following runtime semantics.
+\ Runtime: ( --- z-addr ) Return start 0 terminated address of that string.
+  '"' PARSE
+    	DUP,
+	DUP 2+ 1 ANDC
+	HERE + 4 +
+	$A SWAP $6F J-TYPE, \ jal a0,_
+	S, 0 C,
+	HERE 1 AND IF 0 C, THEN
+; IMMEDIATE
+
+T: ." [COMPILE] Z" ['] ZTYPE COMPILE, ; IMMEDIATE
+
+\ : rrr ." qwerty" ;
+
+: ALIGN HERE 1+ 1 ANDC DP ! ;
+
+VARIABLE LAST-CFA
+CREATE WARNING 1 ,
+CREATE NEEDUNIQUE  0 ,
+
+: SBUILD ( addr u -- )
+	HERE 0 , DUP LAST-CFA !
+	0 ,   ( flags )
+	-ROT WARNING @ NEEDUNIQUE @ OR
+	IF 2DUP GET-CURRENT SEARCH-WORDLIST
+	   DUP NEEDUNIQUE @ AND
+	   ABORT"  unique is need"
+	   IF ( NOUNIQUE ) DROP 2DUP TYPE ."  isn't unique" CR THEN
+	THEN
+	 CURRENT @ @ ,
+	HERE LAST !
+	S", 
+	ALIGN
+    HERE SWAP ! ( ......... cfa )
+;
+
+: SMUDGE LAST @ CURRENT @ ! ;
+
+T: SHEADER  SBUILD SMUDGE ;
+
+T: HEADER  PARSE-NAME SHEADER ;
+
+T: BUILD  PARSE-NAME SBUILD ;
+
+T: CREATE  ( n -- )	HEADER
+  $B ['] DOCREATE  $6F J-TYPE,  \ jal a1,_
+  ;
+  
+: VARIABLE CREATE 0 , ;
+
+T: CONSTANT  ( n -- )	HEADER
+  $B ['] DOCONSTANT  $6F J-TYPE,  \ jal a1,_
+  , ;
+
+T: VALUE ( n -- )	HEADER
+  $B ['] DOVALUE $6F J-TYPE,  \ jal a1,_
+  , ;
+
+T: ->DEFER ( cfa -- )	HEADER 	&DOVECT @ COMPILE, , ;
+
+T: DEFER	( -- )  ['] CRASH  ->DEFER ;
+
+: DEFER@ ( xt1 i?? i?? xt2 )
+\ xt2 is the execution token xt1 is set to execute. An ambiguous condition exists if xt1 is not
+\ the execution token of a word defined by DEFER, or if xt1 has not been set to execute an
+  >BODY @ ;
+
+: DEFER! ( xt2 xt1 i?? i?? )
+\ Set the word xt1 to execute xt2. An ambiguous condition exists if xt1 is not for a word
+\ defined by DEFER.
+  >BODY ! ;
+
+T: TO '
+ STATE @
+ IF
+  >BODY  LIT, ['] !
+   COMPILE,
+ BREAK
+ DEFER!  ; IMMEDIATE
+
+T: ] STATE ON ;
+T: [ STATE OFF ; IMMEDIATE
+
+T: : BUILD
+	$1171 W, \     	addi	sp,sp,-4
+	$c006 W, \     	sw	ra,0(sp)
+ ] ;
+
+T: ;  EXIT, SMUDGE [COMPILE] [ ; IMMEDIATE
+
+1 CONSTANT &IMMEDIATE
+
+T: IMMEDIATE
+  &IMMEDIATE LAST @ NAME>F OR! ;
+
+
+: B-TYPE, ( r1 r2 ofset cod -- ) 
+ SWAP HERE -
+ SWAP
+ OVER  $1E AND 7 << OR
+ OVER  $7E0 AND $14 << OR
+ OVER  $800 AND 4 >> OR
+ SWAP  $1000 AND $13 <<  OR
+ 
+ SWAP	$14  << OR
+ SWAP	$F  << OR ,
+;
+
+
+: (DOES>)
+	$B R> LAST @ NAME> - HERE + $6F >J-TYPE \ jal a1,_
+	LAST @ NAME> ! ;
+
+T: DOES>
+ ['] (DOES>) COMPILE,
+ 	DUP,
+	$852E W, \	c.mv	a0,a1
+; IMMEDIATE
+
+1	CONSTANT IF_FLAG
+11	CONSTANT IF.F_FLAG
+13	CONSTANT HEAD_FLAG
+3	CONSTANT BEGIN_FLAG
+7	CONSTANT DO_FLAG1
+
+: AHEAD HERE 0 W, HEAD_FLAG	; IMMEDIATE
+
+T: IF
+	 $85aa W, \	mv	a1,a0
+	 DROP,
+	 HERE 0 , IF_FLAG
+; IMMEDIATE
+
+T: THEN
+DUP IF_FLAG = IF DROP
+
+ HERE OVER  - 
+ 
+  DUP  $1E AND 7 <<
+ OVER  $7E0 AND $14 << OR
+ SWAP  $800 AND 4 >> OR
+ 
+  $58063 OR  \ beq	a1,zero,
+  SWAP  !
+  BREAK
+ HEAD_FLAG = IF
+ HERE OVER -
+ $A001  \ c.j
+ OVER  $E AND 2 << OR
+ OVER $10 AND 7 << OR 
+ OVER $20 AND 3 >> OR
+ OVER $80 AND 1 >> OR
+ OVER $400 AND 2 >> OR
+ SWAP $B40 AND 1 << OR SWAP W! BREAK
+  
+   -314 THROW 
+; IMMEDIATE
+
+T: ELSE   ( BO BI ADDR ? -- 0 0 ADDR1 ?1 )
+  [COMPILE]  AHEAD CS-SWAP
+  [COMPILE]  THEN
+;  IMMEDIATE
+
+T: BEGIN HERE BEGIN_FLAG ; IMMEDIATE
+
+T: UNTIL \ 94
+  BEGIN_FLAG <> IF -2004 THROW THEN \ ABORT" UNTIL 
+	$85AA W, \	c.mv	a1,a0
+	DROP,
+	$B 0 ROT $0063 B-TYPE, \ beqz a1, _ 
+; IMMEDIATE
+
+T: WHILE \ 94
+  [COMPILE] IF  CS-SWAP
+; IMMEDIATE
+
+T: AGAIN
+   BEGIN_FLAG <> IF -2006 THROW THEN
+	0 SWAP $6F J-TYPE, \ jal zero,_
+; IMMEDIATE
+
+T: REPEAT  [COMPILE] AGAIN [COMPILE] THEN ; IMMEDIATE
+
+T: DO            \ Run: n1|u1 n2|u2 -- ; R: -- loop-sys           6.1.1240
+\ *G Begin a *\fo{DO ... LOOP} construct. Takes the end-value and
+\ ** start-value from the stack.
+  ['] (DO) COMPILE, HERE 0 , HERE DO_FLAG1
+; IMMEDIATE
+
+T: ?DO           \ Run: n1|u1 n2|u2 -- ; R: -- | loop-sys ; 6.2.0620
+\ *G Compile a *\fo{DO} which will only begin loop execution if
+\ ** the loop parameters do not specify an interation count of 0.
+  ['] (?DO) COMPILE, HERE 0 , HERE DO_FLAG1
+; IMMEDIATE
+
+
+T: LOOP          \ Run: -- ; R: loop-sys1 -- | loop-sys2         6.1.1800
+\ *G The closing statement of a *\fo{DO ... LOOP} construct.
+\ ** Increments the index and terminates when the index crosses
+\ ** the limit.
+  DO_FLAG1 ?PAIRS
+  
+	$0485 W, \	addi	s1,s1,1
+	$0d85 W, \	addi	s11,s11,1
+
+	$1B 0 ROT $4063 B-TYPE, \ bltz s11, _ 
+   
+	$4d92 W, \	lw	s11,4(sp)
+	$4482 W, \	lw	s1,0(sp)
+	$0131 W, \	addi	sp,sp,12
+      
+  HERE SWAP !
+ ; IMMEDIATE
+
+
+T: +LOOP         \ Run: n -- ; R: loop-sys1 -- | loop-sys2       6.1.0140
+\ *G As *\fo{LOOP} except that you specify the increment on the
+\ ** stack. The action of *\fo{n +LOOP} is peculiar when n is
+\ ** negative:
+\ *C   -1 0 ?DO  i .  -1 +LOOP
+\ *P prints *\fo{0 -1}, whereas:
+\ *C   0 0 ?DO  i .  -1 +LOOP
+\ *P prints nothing. This a result of the mathematical trick used
+\ ** to detect the terminating condition. To prevent confusion
+\ ** avoid using *\fo{n +LOOP} with negative *\i{n}.
+  DO_FLAG1 ?PAIRS
+
+
+	$94aa W, \	add	s1,s1,a0
+	$9daa W, \	add	s11,s11,a0
+    DROP,
+
+	$1B 0 ROT $4063 B-TYPE, \ bltz s11, _ 
+
+	$4d92 W, \	lw	s11,4(sp)
+	$4482 W, \	lw	s1,0(sp)
+	$0131 W, \	addi	sp,sp,12
+
+  HERE SWAP !
+ ; IMMEDIATE
+
+T: VOC-NAME. ( wid -- )
+  DUP CELL+ CELL+ @ DUP
+ IF ID. DROP BREAK
+   DROP ." <NONAME>:" U. 
+;
+
+: VOCS
+        VOC-LIST
+        BEGIN @ DUP WHILE
+               DUP CELL-  VOC-NAME. SPACE
+        REPEAT
+        DROP
+;
+
+: WORDLIST ( --- wid)
+  HERE	0 , 
+  HERE  VOC-LIST @ , VOC-LIST !
+	0 ,
+\ Make a new wordlist and give its address.
+;
+
+T: VOCABULARY ( "<spaces>name" -- )
+  WORDLIST
+  CREATE DUP ,
+   CELL+ \ link
+   CELL+ LAST @ SWAP ! \ 
+   DOES> @ CONTEXT ! ;
+
+T: ALSO ( --- )
+\ Duplicate the last wordlist in the search order.
+ CONTEXT CONTEXT  CELL+ CONTEXT_SIZE CELL-  CMOVE> ;
+
+T: FORTH FORTH-WORDLIST CONTEXT ! ;
+
+T: ONLY ( --- )
+ FORTH CONTEXT CELL+ 0! ;
+
+T: PREVIOUS ( --- )
+\ Remove the last wordlist from search order.
+ CONTEXT CELL+ CONTEXT CONTEXT_SIZE CMOVE  ;
+
+: GET-ORDER ( -- widn ... wid1 n ) \ 94 SEARCH
+  SP@ >R 0 >R
+  CONTEXT
+  BEGIN DUP @ ?DUP
+  WHILE >R CELL+
+  REPEAT  DROP
+  BEGIN R>
+ DUP 0=
+  UNTIL DROP
+  R> SP@ - 4 /
+ 1-
+;
+
+: SET-ORDER
+  DUP -1 = IF DROP ONLY BREAK
+  DUP 0= IF CONTEXT ! BREAK
+  0
+  DO CONTEXT I CELLS +
+     DUP CELL+ 0!  !
+  LOOP
+;
+
+
+T: ORDER ( -- ) \ 94 SEARCH EXT
+  GET-ORDER ." Context: "
+  0 ?DO VOC-NAME. SPACE LOOP CR
+  ." Current: " GET-CURRENT VOC-NAME. CR
+;
+
+\ : sss ?do i h. -2 +loop ; \ 1 100 sss

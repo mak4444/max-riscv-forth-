@@ -1,0 +1,1021 @@
+
+CODE 1+
+	addi	a0,a0,1
+80000092	0505		c.addi	a0,1
+	ret
+80000094	8082		ret
+END-CODE
+
+CODE 2+
+	addi	a0,a0,2
+80000096	0509		c.addi	a0,2
+	ret
+80000098	8082		ret
+END-CODE
+
+CODE CELL+
+	addi	a0,a0,4
+8000009A	0511		c.addi	a0,4
+	ret
+8000009C	8082		ret
+END-CODE	
+
+CODE CELL-
+	addi	a0,a0,-4
+8000009E	1571		c.addi	a0,-4
+	ret
+800000A0	8082		ret
+END-CODE	
+
+CODE 2-
+	addi	a0,a0,-2
+800000A2	1579		c.addi	a0,-2
+	ret
+800000A4	8082		ret
+END-CODE
+
+CODE ?DUP
+	beqz	a0,0f
+800000A6	C119	c.beqz	a0,0x800000AC
+CODL DUP
+	DUP,
+800000A8	1471		c.addi	s0,-4
+800000AA	C008		c.sw	a0,0(s0)
+0:	ret
+800000AC	8082		ret
+END-CODE	
+
+CODE DROP
+	lw	a0,(s0)
+800000AE	4008		c.lw	a0,0(s0)
+CODL NIP
+	addi	s0,s0,4
+800000B0	0411		c.addi	s0,4
+	ret
+800000B2	8082		ret
+END-CODE	
+
+CODE OVER
+	DUP,
+800000B4	1471		c.addi	s0,-4
+800000B6	C008		c.sw	a0,0(s0)
+	lw	a0,4(s0)
+800000B8	4048		c.lw	a0,4(s0)
+	ret
+800000BA	8082		ret
+END-CODE	
+
+' OVER	TO 'OVER
+
+CODE SWAP
+	lw	a1,(s0)
+800000BC	400C		c.lw	a1,0(s0)
+	sw	a0,(s0)
+800000BE	C008		c.sw	a0,0(s0)
+	mv	a0, a1	
+800000C0	852E	c.mv	a0,a1
+	ret
+800000C2	8082		ret
+END-CODE	
+
+CODE ROT	( n2 n1 n0 -- n1 n0 n2 )
+	lw	a1,(s0)
+800000C4	400C		c.lw	a1,0(s0)
+	lw	a2,4(s0)
+800000C6	4050		c.lw	a2,4(s0)
+	sw	a1,4(s0)
+800000C8	C04C		c.sw	a1,4(s0)
+	sw	a0,(s0)
+800000CA	C008		c.sw	a0,0(s0)
+	mv	a0, a2
+800000CC	8532	c.mv	a0,a2
+	ret
+800000CE	8082		ret
+END-CODE	
+
+CODE -ROT	( n2 n1 n0 -- n0 n2 n1 )
+	lw	a1,(s0)
+800000D0	400C		c.lw	a1,0(s0)
+	lw	a2,4(s0)
+800000D2	4050		c.lw	a2,4(s0)
+	sw	a0,4(s0)
+800000D4	C048		c.sw	a0,4(s0)
+	sw	a2,(s0)
+800000D6	C010		c.sw	a2,0(s0)
+	mv	a0, a1
+800000D8	852E	c.mv	a0,a1
+	ret
+800000DA	8082		ret
+END-CODE	
+
+CODE 2NIP
+	lw	a1,(s0)
+800000DC	400C		c.lw	a1,0(s0)
+	addi s0,s0,8
+800000DE	0421		c.addi	s0,8
+	sw	a1,(s0)	
+800000E0	C00C		c.sw	a1,0(s0)
+	ret
+800000E2	8082		ret
+END-CODE	
+
+CODE 2SWAP	(  n3 n2 n1 n0 -- n1 n0 n3 n2  )
+CODL CS-SWAP
+	lw	a1,(s0)
+800000E4	400C		c.lw	a1,0(s0)
+	lw	a2,4(s0)
+800000E6	4050		c.lw	a2,4(s0)
+	lw	a3,8(s0)
+800000E8	4414		c.lw	a3,8(s0)
+	sw	a3,(s0)
+800000EA	C014		c.sw	a3,0(s0)
+	sw	a0,4(s0)
+800000EC	C048		c.sw	a0,4(s0)
+	sw	a1,8(s0)
+800000EE	C40C		c.sw	a1,8(s0)
+	mv	a0, a2
+800000F0	8532	c.mv	a0,a2
+	ret
+800000F2	8082		ret
+END-CODE	
+
+
+CODE PICK	( Nm,...,N1,K -- Nm,...,N1,Nk )
+	slli	a0,a0,2
+800000F4	050A		c.slli	a0,2
+	add	a0,a0,s0
+800000F6	9522	c.add	a0,s0
+	lw	a0,(a0)
+800000F8	4108		c.lw	a0,0(a0)
+	ret
+800000FA	8082		ret
+END-CODE
+
+CODE +
+	lw	a1,0(s0)
+800000FC	400C		c.lw	a1,0(s0)
+	add	a0,a0,a1
+800000FE	952E	c.add	a0,a1
+	addi	s0,s0,4
+80000100	0411		c.addi	s0,4
+	ret
+80000102	8082		ret
+END-CODE
+
+CODE -
+	lw	a1,0(s0)
+80000104	400C		c.lw	a1,0(s0)
+	sub	a0,a1,a0
+80000106	8533 40A5	sub	a0,a1,a0
+	addi	s0,s0,4
+8000010A	0411		c.addi	s0,4
+	ret
+8000010C	8082		ret
+END-CODE
+
+CODE D+
+	lw	a2,8(s0)
+8000010E	4410		c.lw	a2,8(s0)
+	lw	a3,4(s0)
+80000110	4054		c.lw	a3,4(s0)
+	lw	a1,0(s0)
+80000112	400C		c.lw	a1,0(s0)
+		add    a1, a1,a2
+80000114	95B2	c.add	a1,a2
+		sltu   a4, a1,a2  # R4 is carry
+80000116	B733 00C5	sltu	a4,a1,a2
+		add    a0, a0,a3
+8000011A	9536	c.add	a0,a3
+		add    a0, a0,a4
+8000011C	953A	c.add	a0,a4
+	sw	a1,8(s0)
+8000011E	C40C		c.sw	a1,8(s0)
+	addi s0,s0,8
+80000120	0421		c.addi	s0,8
+	ret
+80000122	8082		ret
+END-CODE
+
+\ Forth UM+      ( n1 n2 -- sum cflag )
+\  Add two numbers, return the sum and carry flag.
+CODE UM+
+	lw	a1,(s0)
+80000124	400C		c.lw	a1,0(s0)
+		add    a1, a1,a0
+80000126	95AA	c.add	a1,a0
+		sltu   a0, a1,a0  # R0 is carry
+80000128	B533 00A5	sltu	a0,a1,a0
+	sw	a2,(s0)
+8000012C	C010		c.sw	a2,0(s0)
+	ret
+8000012E	8082		ret
+END-CODE
+
+CODE UM* ( u1 u2 -- ud ) \ 94
+\ ud - произведение u1 и u2. Все значения и арифметика беззнаковые.
+	lw	a1,(s0)
+80000130	400C		c.lw	a1,0(s0)
+		mul	a2, a0,a1
+80000132	0633 02B5	mul	a2,a0,a1
+		mulhu	a0, a0,a1
+80000136	3533 02B5	mulhu	a0,a0,a1
+	sw	a2,(s0)
+8000013A	C010		c.sw	a2,0(s0)
+	ret
+8000013C	8082		ret
+END-CODE
+
+CODE DNEGATE  ( d -- -d )
+
+	lw	a1,(s0)
+8000013E	400C		c.lw	a1,0(s0)
+		neg a1, a1
+80000140	05B3 40B0	sub	a1,zero,a1
+		sltu a3, zero, a1   # R3 is borrow
+80000144	36B3 00B0	sltu	a3,zero,a1
+		neg a0, a0
+80000148	0533 40A0	sub	a0,zero,a0
+		sub a0,a0,a3
+8000014C	0533 40D5	sub	a0,a0,a3
+	sw	a1,(s0)
+80000150	C00C		c.sw	a1,0(s0)
+	ret
+80000152	8082		ret
+END-CODE
+
+CODE *
+	lw	a1,0(s0)
+80000154	400C		c.lw	a1,0(s0)
+	mul	a0,a0,a1
+80000156	0533 02B5	mul	a0,a0,a1
+	addi	s0,s0,4
+8000015A	0411		c.addi	s0,4
+	ret
+8000015C	8082		ret
+END-CODE
+
+CODE /
+	lw		a1,0(s0)
+8000015E	400C		c.lw	a1,0(s0)
+	div		a0,a1,a0
+80000160	C533 02A5	div	a0,a1,a0
+	addi	s0,s0,4
+80000164	0411		c.addi	s0,4
+	ret
+80000166	8082		ret
+END-CODE
+
+CODE U/
+	lw		a1,0(s0)
+80000168	400C		c.lw	a1,0(s0)
+	divu	a0,a1,a0
+8000016A	D533 02A5	divu	a0,a1,a0
+	addi	s0,s0,4
+8000016E	0411		c.addi	s0,4
+	ret
+80000170	8082		ret
+END-CODE
+
+CODE MOD
+	lw		a1,0(s0)
+80000172	400C		c.lw	a1,0(s0)
+	rem		a0,a1,a0
+80000174	E533 02A5	rem	a0,a1,a0
+	addi	s0,s0,4
+80000178	0411		c.addi	s0,4
+	ret
+8000017A	8082		ret
+END-CODE
+
+CODE OR
+	lw		a1,0(s0)
+8000017C	400C		c.lw	a1,0(s0)
+	or		a0,a0,a1
+8000017E	6533 00B5	or	a0,a0,a1
+	addi	s0,s0,4
+80000182	0411		c.addi	s0,4
+	ret
+80000184	8082		ret
+END-CODE	
+
+CODE XOR
+	lw	a1,0(s0)
+80000186	400C		c.lw	a1,0(s0)
+	xor	a0,a0,a1
+80000188	4533 00B5	xor	a0,a0,a1
+	addi	s0,s0,4
+8000018C	0411		c.addi	s0,4
+	ret
+8000018E	8082		ret
+END-CODE	
+
+CODE ANDC
+	not	a0,a0
+80000190	4513 FFF5	xori	a0,a0,-1
+CODL AND
+	lw	a1,0(s0)
+80000194	400C		c.lw	a1,0(s0)
+	and	a0,a0,a1
+80000196	7533 00B5	and	a0,a0,a1
+	addi	s0,s0,4
+8000019A	0411		c.addi	s0,4
+	ret
+8000019C	8082		ret
+END-CODE	
+
+CODE LSHIFT
+CODL <<
+	lw	a1,0(s0)
+8000019E	400C		c.lw	a1,0(s0)
+	SLL	a0, a1, a0
+800001A0	9533 00A5	sll	a0,a1,a0
+	addi	s0,s0,4
+800001A4	0411		c.addi	s0,4
+	ret
+800001A6	8082		ret
+END-CODE	
+
+CODE RSHIFT
+CODL >>
+	lw	a1,0(s0)
+800001A8	400C		c.lw	a1,0(s0)
+	SRL	a0, a1, a0
+800001AA	D533 00A5	srl	a0,a1,a0
+	addi	s0,s0,4
+800001AE	0411		c.addi	s0,4
+	ret
+800001B0	8082		ret
+END-CODE	
+
+CODE ARSHIFT
+CODL A>>
+	lw	a1,0(s0)
+800001B2	400C		c.lw	a1,0(s0)
+	SRA	a0, a1, a0
+800001B4	D533 40A5	sra	a0,a1,a0
+	addi	s0,s0,4
+800001B8	0411		c.addi	s0,4
+	ret
+800001BA	8082		ret
+END-CODE	
+
+CODE 16*
+	slli    a0, a0, 4
+800001BC	0512		c.slli	a0,4
+	ret
+800001BE	8082		ret
+END-CODE	
+
+CODE 2*
+	slli    a0, a0, 1
+800001C0	0506		c.slli	a0,1
+	ret
+800001C2	8082		ret
+END-CODE	
+
+CODE CELLS
+	slli    a0, a0, 2
+800001C4	050A		c.slli	a0,2
+	ret
+800001C6	8082		ret
+END-CODE	
+
+CODE U16/
+	srli    a0, a0, 4
+800001C8	8111		c.srli	a0,4
+	ret
+800001CA	8082		ret
+END-CODE	
+
+CODE U2/
+	srli    a0, a0, 1
+800001CC	8105		c.srli	a0,1
+	ret
+800001CE	8082		ret
+END-CODE
+
+CODE 2/
+	SRAI    a0, a0, 1
+800001D0	8505		c.srai	a0,1
+	ret
+800001D2	8082		ret
+END-CODE
+
+CODE @
+	lw	a0,(a0)
+800001D4	4108		c.lw	a0,0(a0)
+	ret
+800001D6	8082		ret
+END-CODE
+
+CODE W@
+	lhu	a0,(a0)
+800001D8	5503 0005	lhu	a0,0(a0)
+	ret
+800001DC	8082		ret
+END-CODE
+
+CODE CDR
+	lw	a0,-4(a0)
+800001DE	2503 FFC5	lw	a0,-4(a0)
+	ret
+800001E2	8082		ret
+END-CODE
+
+CODE NAME>F
+	addi	a0,a0,-8
+800001E4	1561		c.addi	a0,-8
+	ret
+800001E6	8082		ret
+END-CODE
+
+CODE NAME>C
+	addi	a0,a0,-0xC
+800001E8	1551		c.addi	a0,-12
+	ret
+800001EA	8082		ret
+END-CODE
+
+CODE NAME>
+	lw	a0,-0xC(a0)
+800001EC	2503 FF45	lw	a0,-12(a0)
+	ret
+800001F0	8082		ret
+END-CODE
+
+
+CODE !
+	lw	a1,(s0)
+800001F2	400C		c.lw	a1,0(s0)
+	sw	a1,(a0)
+800001F4	C10C		c.sw	a1,0(a0)
+CODL 2DROP
+	lw	a0,4(s0)
+800001F6	4048		c.lw	a0,4(s0)
+	addi s0,s0,8
+800001F8	0421		c.addi	s0,8
+	ret
+800001FA	8082		ret
+END-CODE
+
+CODE W!
+	lw	a1,(s0)
+800001FC	400C		c.lw	a1,0(s0)
+	sh	a1,(a0)
+800001FE	1023 00B5	sh	a1,0(a0)
+	lw	a0,4(s0)
+80000202	4048		c.lw	a0,4(s0)
+	addi s0,s0,8
+80000204	0421		c.addi	s0,8
+	ret
+80000206	8082		ret
+END-CODE
+
+CODE C!
+	lw	a1,(s0)
+80000208	400C		c.lw	a1,0(s0)
+	sb	a1,(a0)
+8000020A	0023 00B5	sb	a1,0(a0)
+	lw	a0,4(s0)
+8000020E	4048		c.lw	a0,4(s0)
+	addi s0,s0,8
+80000210	0421		c.addi	s0,8
+	ret
+80000212	8082		ret
+END-CODE
+
+CODE ON
+	li	a1,-1
+80000214	55FD		c.li	a1,-1
+	sw	a1,(a0)
+80000216	C10C		c.sw	a1,0(a0)
+	DROP,
+80000218	4008		c.lw	a0,0(s0)
+8000021A	0411		c.addi	s0,4
+	ret
+8000021C	8082		ret
+END-CODE
+
+CODE OFF
+CODL 0!
+	sw	zero,(a0)
+8000021E	2023 0005	sw	zero,0(a0)
+	DROP,
+80000222	4008		c.lw	a0,0(s0)
+80000224	0411		c.addi	s0,4
+	ret
+80000226	8082		ret
+END-CODE
+
+
+\  If n1 is equal to n2, return TRUE. Otherwise FALSE.
+CODE =		( a b -- f )
+	lw	a1,0(s0)
+80000228	400C		c.lw	a1,0(s0)
+	xor	a0,a0,a1
+8000022A	4533 00B5	xor	a0,a0,a1
+	addi	s0,s0,4
+8000022E	0411		c.addi	s0,4
+\  If n is equal to 0, return TRUE. Otherwise FALSE.
+CODL 0=		( a -- f )
+	seqz	a0,a0
+80000230	3513 0015	sltiu	a0,a0,1
+CODL NEGATE	
+	neg	a0,a0
+80000234	0533 40A0	sub	a0,zero,a0
+	ret
+80000238	8082		ret
+END-CODE
+
+CODE 0<	( n -- F )
+	srai    a0, a0, 0x1f
+8000023A	857D		c.srai	a0,31
+	ret
+8000023C	8082		ret
+END-CODE
+
+\ If n1 is not equal to n2, return TRUE.  Otherwise FALSE.
+CODE <>		( a b -- f )
+	lw	a1,0(s0)
+8000023E	400C		c.lw	a1,0(s0)
+	xor	a0,a0,a1
+80000240	4533 00B5	xor	a0,a0,a1
+	addi	s0,s0,4
+80000244	0411		c.addi	s0,4
+\ If n is not equal to 0, return TRUE.  Otherwise FALSE.
+CODL 0<>	( a -- F )
+	seqz	a0,a0
+80000246	3513 0015	sltiu	a0,a0,1
+CODL 1-	
+	addi	a0,a0,-1
+8000024A	157D		c.addi	a0,-1
+	ret
+8000024C	8082		ret
+END-CODE
+
+CODE <	( a b -- F )
+	lw	a1,0(s0)
+8000024E	400C		c.lw	a1,0(s0)
+	SLT a0, a1, a0
+80000250	A533 00A5	slt	a0,a1,a0
+	neg a0,a0
+80000254	0533 40A0	sub	a0,zero,a0
+	addi	s0,s0,4
+80000258	0411		c.addi	s0,4
+	ret
+8000025A	8082		ret
+END-CODE
+
+CODE >	( a b -- F )
+	lw	a1,0(s0)
+8000025C	400C		c.lw	a1,0(s0)
+	SLT a0, a0, a1
+8000025E	2533 00B5	slt	a0,a0,a1
+	neg a0,a0
+80000262	0533 40A0	sub	a0,zero,a0
+	addi	s0,s0,4
+80000266	0411		c.addi	s0,4
+	ret
+80000268	8082		ret
+END-CODE
+
+CODE U<	( a b -- F )
+	lw	a1,0(s0)
+8000026A	400C		c.lw	a1,0(s0)
+	SLTU a0, a1, a0
+8000026C	B533 00A5	sltu	a0,a1,a0
+	neg a0,a0
+80000270	0533 40A0	sub	a0,zero,a0
+	addi	s0,s0,4
+80000274	0411		c.addi	s0,4
+	ret
+80000276	8082		ret
+END-CODE
+
+CODE U>	( a b -- F )
+	lw	a1,0(s0)
+80000278	400C		c.lw	a1,0(s0)
+	SLTU a0, a0, a1
+8000027A	3533 00B5	sltu	a0,a0,a1
+	neg a0,a0
+8000027E	0533 40A0	sub	a0,zero,a0
+	addi	s0,s0,4
+80000282	0411		c.addi	s0,4
+	ret
+80000284	8082		ret
+END-CODE
+
+CODE 0MAX	( a b -- F )
+	bltz	a0, 0f
+80000286	4363 0005	blt	a0,zero,0x8000028C
+	li		a0,0
+8000028A	4501		c.li	a0,0
+0:	ret
+8000028C	8082		ret
+END-CODE
+
+CODE MIN	( a b -- F )
+	lw		a1,0(s0)
+8000028E	400C		c.lw	a1,0(s0)
+	addi	s0,s0,4
+80000290	0411		c.addi	s0,4
+	blt		a0, a1, 0f
+80000292	4363 00B5	blt	a0,a1,0x80000298
+	mv		a0,a1
+80000296	852E	c.mv	a0,a1
+0:	ret
+80000298	8082		ret
+END-CODE
+
+CODE MAX	( a b -- F )
+	lw		a1,0(s0)
+8000029A	400C		c.lw	a1,0(s0)
+	addi	s0,s0,4
+8000029C	0411		c.addi	s0,4
+	blt		a1, a0, 0f
+8000029E	C363 00A5	blt	a1,a0,0x800002A4
+	mv		a0,a1
+800002A2	852E	c.mv	a0,a1
+0:	ret
+800002A4	8082		ret
+END-CODE
+
+CODE UMAX	( a b -- F )
+	lw		a1,0(s0)
+800002A6	400C		c.lw	a1,0(s0)
+	addi	s0,s0,4
+800002A8	0411		c.addi	s0,4
+	bltu	a1, a0, 0f
+800002AA	E363 00A5	bltu	a1,a0,0x800002B0
+	mv		a0,a1
+800002AE	852E	c.mv	a0,a1
+0:	ret
+800002B0	8082		ret
+END-CODE
+
+CODE UMIN	( a b -- F )
+	lw		a1,0(s0)
+800002B2	400C		c.lw	a1,0(s0)
+	addi	s0,s0,4
+800002B4	0411		c.addi	s0,4
+	bltu	a0, a1, 0f
+800002B6	6363 00B5	bltu	a0,a1,0x800002BC
+	mv		a0,a1
+800002BA	852E	c.mv	a0,a1
+0:	ret
+800002BC	8082		ret
+END-CODE
+
+CODE ABS	( a b -- F )
+	blt	zero,a0, 0f
+800002BE	4463 00A0	blt	zero,a0,0x800002C6
+	neg	a0,a0
+800002C2	0533 40A0	sub	a0,zero,a0
+0:	ret
+800002C6	8082		ret
+END-CODE	
+
+CODE COUNT	( a -- a+1 c ) 
+	DUP,
+800002C8	1471		c.addi	s0,-4
+800002CA	C008		c.sw	a0,0(s0)
+	addi	a1,a0,1
+800002CC	0593 0015	addi	a1,a0,1
+	sw	a1,0(s0)
+800002D0	C00C		c.sw	a1,0(s0)
+CODL C@
+	lbu	a0,(a0)
+800002D2	4503 0005	lbu	a0,0(a0)
+	ret
+800002D6	8082		ret
+END-CODE
+
+CODE PERFORM	( ... [tx] -- ...' )
+CODL @EXECUTE
+	lw	a0,(a0)
+800002D8	4108		c.lw	a0,0(a0)
+\ Execute the word whose CFA is on the stack
+CODL EXECUTE	( ... tx -- ...' )
+	mv	a1, a0
+800002DA	85AA	c.mv	a1,a0
+	lw	a0,(s0) \ drop
+800002DC	4008		c.lw	a0,0(s0)
+	addi	s0,s0,4
+800002DE	0411		c.addi	s0,4
+	jr	a1
+800002E0	8067 0005	jalr	zero,a1,0x800002E2
+END-CODE
+
+CODE SP@
+	DUP,
+800002E4	1471		c.addi	s0,-4
+800002E6	C008		c.sw	a0,0(s0)
+	mv	a0,s0
+800002E8	8522	c.mv	a0,s0
+	ret
+800002EA	8082		ret
+END-CODE
+
+CODE SP!
+	addi	s0,a0,4
+800002EC	0413 0045	addi	s0,a0,4
+	lw		a0,-4(s0)
+800002F0	2503 FFC4	lw	a0,-4(s0)
+	ret
+800002F4	8082		ret
+END-CODE
+
+CODE RP@
+	DUP,
+800002F6	1471		c.addi	s0,-4
+800002F8	C008		c.sw	a0,0(s0)
+	mv	a0,sp
+800002FA	850A	c.mv	a0,sp
+	ret
+800002FC	8082		ret
+END-CODE
+
+CODE RP!
+	mv	sp,a0
+800002FE	812A	c.mv	sp,a0
+	DROP,
+80000300	4008		c.lw	a0,0(s0)
+80000302	0411		c.addi	s0,4
+	ret
+80000304	8082		ret
+END-CODE
+
+CODE DUP>R	( N -- N )
+	addi	sp,sp,-4
+80000306	1171		c.addi	sp,-4
+	sw		a0,0(sp)
+80000308	C02A		c.swsp	a0,0(sp)
+	ret
+8000030A	8082		ret
+END-CODE
+
+CODE >R	( N --  )
+	addi	sp,sp,-4
+8000030C	1171		c.addi	sp,-4
+	sw		a0,0(sp)
+8000030E	C02A		c.swsp	a0,0(sp)
+	DROP,
+80000310	4008		c.lw	a0,0(s0)
+80000312	0411		c.addi	s0,4
+	ret
+80000314	8082		ret
+END-CODE
+
+CODE R@	( N -- N )
+	DUP,
+80000316	1471		c.addi	s0,-4
+80000318	C008		c.sw	a0,0(s0)
+	lw		a0,0(sp)
+8000031A	4502		c.lwsp	a0,0(sp)
+	ret
+8000031C	8082		ret
+END-CODE
+
+CODE R>	( N -- N )
+	DUP,
+8000031E	1471		c.addi	s0,-4
+80000320	C008		c.sw	a0,0(s0)
+	lw		a0,0(sp)
+80000322	4502		c.lwsp	a0,0(sp)
+CODL RDROP	
+	addi	sp,sp,4
+80000324	0111		c.addi	sp,4
+	ret
+80000326	8082		ret
+END-CODE
+
+CODE 2>R	( N --  )
+	addi	sp,sp,-8
+80000328	1161		c.addi	sp,-8
+	sw	a0,0(sp)
+8000032A	C02A		c.swsp	a0,0(sp)
+	lw	a0,0(s0)
+8000032C	4008		c.lw	a0,0(s0)
+	sw	a0,4(sp)
+8000032E	C22A		c.swsp	a0,4(sp)
+	lw	a0,4(s0)
+80000330	4048		c.lw	a0,4(s0)
+	addi	s0,s0,8
+80000332	0421		c.addi	s0,8
+	ret
+80000334	8082		ret
+END-CODE
+
+CODE 2R@	( N -- N )
+	addi	s0,s0,8
+80000336	0421		c.addi	s0,8
+	sw	a0,4(s0)
+80000338	C048		c.sw	a0,4(s0)
+	lw	a0,4(sp)
+8000033A	4512		c.lwsp	a0,4(sp)
+	sw	a0,0(s0)
+8000033C	C008		c.sw	a0,0(s0)
+	lw	a0,0(sp)
+8000033E	4502		c.lwsp	a0,0(sp)
+	ret
+80000340	8082		ret
+END-CODE
+
+CODE 2R>	( N -- N )
+	addi	s0,s0,-8
+80000342	1461		c.addi	s0,-8
+	sw	a0,4(s0)
+80000344	C048		c.sw	a0,4(s0)
+	lw	a0,4(sp)
+80000346	4512		c.lwsp	a0,4(sp)
+	sw	a0,0(s0)
+80000348	C008		c.sw	a0,0(s0)
+	lw	a0,0(sp)
+8000034A	4502		c.lwsp	a0,0(sp)
+	
+CODL 2RDROP	
+	addi	sp,sp,8
+8000034C	0121		c.addi	sp,8
+	ret
+8000034E	8082		ret
+END-CODE
+
+CODE DOVECT
+	lw	a1,(a1)
+80000350	418C		c.lw	a1,0(a1)
+	jr	a1
+80000352	8067 0005	jalr	zero,a1,0x80000354
+END-CODE 
+
+' DOVECT TO 'DOVECT
+
+CODE DOCREATE
+	DUP,
+80000356	1471		c.addi	s0,-4
+80000358	C008		c.sw	a0,0(s0)
+	mv	a0,a1
+8000035A	852E	c.mv	a0,a1
+	ret
+8000035C	8082		ret
+END-CODE
+
+CODE DOVALUE
+	nop
+8000035E	0001		c.addi	zero,0
+CODL DOCONSTANT
+	DUP,
+80000360	1471		c.addi	s0,-4
+80000362	C008		c.sw	a0,0(s0)
+	lw	a0,(a1)
+80000364	4188		c.lw	a0,0(a1)
+	ret
+80000366	8082		ret
+END-CODE
+
+' DOVALUE TO 'DOVALUE
+' DOCONSTANT TO 'DOCONSTANT
+
+CODE I
+	DUP,
+80000368	1471		c.addi	s0,-4
+8000036A	C008		c.sw	a0,0(s0)
+	mv	a0,s1
+8000036C	8526	c.mv	a0,s1
+	ret
+8000036E	8082		ret
+END-CODE
+	
+CODE (?DO) (  limit index -- )
+	lw		a1,0(s0)
+80000370	400C		c.lw	a1,0(s0)
+	beq		a0,a1,0f	\ index = limit
+80000372	0263 02B5	beq	a0,a1,0x80000396
+CODL (DO) (  limit index -- )
+	addi	sp,sp,-0xC
+80000376	1151		c.addi	sp,-12
+	sw		ra, 8(sp)	\ return is exit address link
+80000378	C406		c.swsp	s1,8(sp)
+	sw		s11, 4(sp)	\ s11 = old index - limit - msb
+8000037A	C26E		c.swsp	a1,4(sp)
+	sw		s1, (sp)	\ s1 = old index     
+8000037C	C026		c.swsp	s1,0(sp)
+
+	lw		a1,0(s0)	\ a1 = index
+8000037E	400C		c.lw	a1,0(s0)
+	sub		s11,a0,a1	\ s11 = index - limit 
+80000380	0DB3 40B5	sub	s11,a0,a1
+	li		a1,0x80000000
+80000384	05B7 8000	lui	a1,80000
+	or		s11,s11,a1
+80000388	EDB3 00BD	or	s11,s11,a1
+	mv		s1,a0 	\ s1 = index
+8000038C	84AA	c.mv	s1,a0
+
+	lw	a0,4(s0)	\ 2drop
+8000038E	4048		c.lw	a0,4(s0)
+	addi s0,s0,8
+80000390	0421		c.addi	s0,8
+
+	addi	ra,ra,4
+80000392	0091		c.addi	ra,4
+	ret
+80000394	8082		ret
+0:
+	lw	a0,4(s0)	\ 2drop
+80000396	4048		c.lw	a0,4(s0)
+	addi s0,s0,8
+80000398	0421		c.addi	s0,8
+
+	lw		ra, (ra)	\ return is exit address link
+8000039A	A083 0000	lw	ra,0(ra)
+	ret
+8000039E	8082		ret
+END-CODE
+
+' (?DO) TO '(?DO)
+' (DO) TO '(DO)
+
+CODE UNLOOP
+	lw	s11,4(sp)
+800003A0	4D92		c.lwsp	a1,4(sp)
+	lw	s1,0(sp)
+800003A2	4482		c.lwsp	s1,0(sp)
+	addi	sp,sp,12
+800003A4	0131		c.addi	sp,12
+	ret
+800003A6	8082		ret
+END-CODE
+
+
+CODE EMIT
+	addi	sp,sp,-4
+800003A8	1171		c.addi	sp,-4
+	sw	ra,0(sp)
+800003AA	C006		c.swsp	s1,0(sp)
+	
+    li a1, UART_BASE
+800003AC	05B7 1000	lui	a1,10000
+    call ' putc
+800003B0	31B5	c.jal	0x8000001C
+	
+	lw	a0,0(s0) \ drop
+800003B2	4008		c.lw	a0,0(s0)
+	addi	s0,s0,4
+800003B4	0411		c.addi	s0,4
+	
+	lw	ra,0(sp)
+800003B6	4082		c.lwsp	s1,0(sp)
+	addi	sp,sp,4
+800003B8	0111		c.addi	sp,4
+	ret
+800003BA	8082		ret
+END-CODE	
+
+CODE KEY
+	addi	sp,sp,-4
+800003BC	1171		c.addi	sp,-4
+	sw	ra,0(sp)
+800003BE	C006		c.swsp	s1,0(sp)
+	
+	DUP,
+800003C0	1471		c.addi	s0,-4
+800003C2	C008		c.sw	a0,0(s0)
+	li a0, UART_BASE
+800003C4	0537 1000	lui	a0,10000
+	call ' getc_block         # char in a0
+800003C8	3965	c.jal	0x80000080
+	
+	lw	ra,0(sp)
+800003CA	4082		c.lwsp	s1,0(sp)
+	addi	sp,sp,4
+800003CC	0111		c.addi	sp,4
+	ret
+800003CE	8082		ret
+END-CODE	
+
+CODE CMOVE
+	beqz	a0, 0f
+800003D0	C919	c.beqz	a0,0x800003E6
+	lw	a2, 4(s0)	#source
+800003D2	4050		c.lw	a2,4(s0)
+	lw	a1, (s0)	#count
+800003D4	400C		c.lw	a1,0(s0)
+1:	lb	a3, 0(a2)
+800003D6	0683 0006	lb	a3,0(a2)
+        addi	a2, a2, 1 
+800003DA	0605		c.addi	a2,1
+        sb	a3, 0(a1)
+800003DC	8023 00D5	sb	a3,0(a1)
+        addi	a1, a1, 1 
+800003E0	0585		c.addi	a1,1
+        addi	a0, a0, -1
+800003E2	157D		c.addi	a0,-1
+        bnez	a0, 1b
+800003E4	F96D	c.bnez	a0,0x800003D6
+0:	lw	a0, 8(s0)
+800003E6	4408		c.lw	a0,8(s0)
+        addi	s0, s0, 0xC	
+800003E8	0431		c.addi	s0,12
+	ret
+800003EA	8082		ret
+END-CODE	

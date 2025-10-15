@@ -1,0 +1,164 @@
+
+0 [if]
+CODE TCT
+
+	bltz	x28,here
+	bltz	s11,here
+	bltz	t3,here
+
+	li	a0,0x800
+	jal	ra, here 0x80F6	-
+____:	002000ef          	jal	ra,    0x2 here +
+____:	004000ef          	jal	ra,    0x4 here +
+____:	008000ef          	jal	ra,    0x8 here +
+____:	010000ef          	jal	ra,   0x10 here +
+____:	020000ef          	jal	ra,   0x20 here +
+____:	040000ef          	jal	ra,   0x40 here +
+____:	080000ef          	jal	ra,   0x80 here +
+____:	100000ef          	jal	ra,  0x100 here +
+____:	200000ef          	jal	ra,  0x200 here +
+____:	400000ef          	jal	ra,  0x400 here +
+____:	001000ef          	jal	ra,  0x800 here +
+____:	000010ef          	jal	ra, 0x1000 here +
+____:	000020ef          	jal	ra, 0x2000 here +
+____:	000040ef          	jal	ra, 0x4000 here +
+____:	000080ef          	jal	ra, 0x8000 here +
+____:	000100ef          	jal	ra,0x10000 here +
+____:	000200ef          	jal	ra,0x20000 here +
+____:	000400ef          	jal	ra,0x40000 here +
+____:	000800ef          	jal	ra,0x80000 here +
+END-CODE
+\eof
+
+	beq		a0,a1,.+  0x1
+	beq		a0,a1,.+  0x2
+	beq		a0,a1,.+  0x4
+	beq		a0,a1,.+  0x8
+	beq		a0,a1,.+ 0x10
+	beq		a0,a1,.+ 0x20
+	beq		a0,a1,.+ 0x40
+	beq		a0,a1,.+ 0x80
+	beq		a0,a1,.+0x100
+	beq		a0,a1,.+0x200
+	beq		a0,a1,.+0x400
+	beq		a0,a1,.+0x800
+
+
+[then]
+
+
+#define UART_REG_TRANSMIT 0
+#define UART_REG_RECEIVE 0
+#define UART_REG_FCR 2
+#define UART_REG_LCR 3 
+#define UART_REG_LSR 5
+#define UART_REG_IER 0x1
+
+#define UART_REG_FCF_FIFOENABLE 1
+#define UART_REG_LCR_THRE 1 5 <<
+#define UART_REG_LSR_DR 1
+
+
+\ "ns16550a compatible" UART DRIVER
+
+CODE initUart
+    # taken from https://github.com/safinsingh/ns16550a/tree/master
+    # Args:
+    # a0 - UART base address
+    mv  t0, a0
+
+    # 0x3 -> 8 bit word length
+    li  t1, 0x3
+    sb  t1, UART_REG_LCR(t0)
+
+    # 0x1 -> enable FIFOs
+    li  t1, 0x1
+    sb  t1, UART_REG_LCR(t0)
+
+    # 0x1 -> enable reciever interrupts
+    sb  t1, UART_REG_IER(t0)
+    ret
+END-CODE
+
+CODE putc
+    # Args:
+    # a0 - character to output
+    # a1 - UART base address
+    addi sp, sp, -16  # allocate 16 bytes on stack
+    sw   ra, 12(sp)   # store return address on stack
+
+0:
+    lb t0, UART_REG_LCR(a1)
+    andi t1, t0, UART_REG_LCR_THRE
+    beqz t1, 1f
+    j 0b
+1:
+    sb a0, UART_REG_TRANSMIT(a1)
+
+    lw   ra, 12(sp)  # load return address from stack
+    addi sp, sp, 16  # restore stack pointer
+    ret
+
+END-CODE
+
+CODE puts
+    # Args:
+    # a0 - string address
+    # a1 - UART base address
+    # while string byte not null
+    SaveReturnAddress
+    mv t3, a0
+1:
+    lb t0, 0(t3)
+    beq t0, zero, 2f
+    mv a0, t0
+    call ' putc
+    addi t3, t3, 1
+    j 1b
+2:
+    RestoreReturnAddress
+    ret
+
+END-CODE
+
+CODE getc
+    # Args:
+    # a0 - UART base address
+    # Returns:
+    # a0 - char from uart
+    SaveReturnAddress
+    add sp, sp, -8
+    sw t0, 0(sp)
+    sw t1, 4(sp)
+    lbu t0, UART_REG_LSR(a0)
+    andi t1, t0, UART_REG_LSR_DR
+    beqz t1, 1f \ bytenotread
+    j 0f \ byteread
+1: \ bytenotread:
+    li a0, 0
+    j 2f \ end
+0: \ byteread:
+    lb a0, UART_REG_RECEIVE(a0)
+2: \ end:
+    lw t0, 0(sp)
+    lw t1, 4(sp)
+    add sp, sp, 8
+    RestoreReturnAddress
+    ret
+
+END-CODE
+
+CODE getc_block
+    # Args:
+    # a0 - UART base address
+    # Returns:
+    # a0 - char from uart
+    SaveReturnAddress
+    mv t0, a0
+4:
+    mv a0, t0
+    call  ' getc
+    beqz a0, 4b \  ' notgotchar
+    RestoreReturnAddress
+    ret
+END-CODE

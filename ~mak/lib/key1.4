@@ -1,0 +1,71 @@
+
+REQUIRE KERNEL32DLL lib\WAPI.4
+REQUIRE [IFNDEF] ~nn\lib\ifdef.f
+
+\ S" RERTRT"  HEAP-COPY  1 DUMP
+
+\ VOC-LIST @ CELL+ @ NLIST
+\- CHARS : CHARS ;
+CREATE INPUT_RECORD ( /INPUT_RECORD) 20 2 * CHARS ALLOT
+
+KERNEL32DLL WAPI4: ReadConsoleInputA	ReadConsoleInputA
+
+\- KEY_EVENT 1 CONSTANT KEY_EVENT
+
+[IFNDEF] EKEY?
+KERNEL32DLL WAPI2: GetNumberOfConsoleInputEvents  GetNumberOfConsoleInputEvents
+
+:  EKEY? 0 >R H-STDIN RP@ GetNumberOfConsoleInputEvents DROP R> ;
+
+[THEN]
+
+: EKEY
+  0 >R H-STDIN  INPUT_RECORD  2 RP@ 
+  ReadConsoleInputA DROP RDROP
+  INPUT_RECORD ( EventType ) W@  KEY_EVENT <> IF 0 EXIT THEN
+  [ INPUT_RECORD ( Event AsciiChar       ) 14 + LIT, ] W@
+  [ INPUT_RECORD ( Event wVirtualScanCode) 12 + LIT, ] W@  16 LSHIFT OR
+  [ INPUT_RECORD ( Event bKeyDown        ) 04 + LIT, ] C@  24 LSHIFT OR
+;
+
+
+: EKEY>CHAR ( u -- u false | char true ) \ 93 FACILITY EXT
+  DUP    0xFF000000 AND  0=   IF FALSE    EXIT THEN
+  DUP    0x000000FF AND  DUP IF NIP TRUE EXIT THEN DROP
+  FALSE
+;
+
+: EKEY>SCAN ( u -- scan flag )
+  DUP  10 RSHIFT  0x000000FF AND
+  SWAP 0xFF000000 AND 0<>
+;
+
+\- PENDING-CHAR VARIABLE PENDING-CHAR
+
+: KEY1? ( -- flag ) \ 94 FACILITY
+  PENDING-CHAR @ 0 > IF TRUE EXIT THEN
+  BEGIN
+    EKEY?
+  WHILE
+    EKEY  EKEY>CHAR
+    IF PENDING-CHAR !
+       TRUE EXIT
+    THEN
+    DROP
+  REPEAT FALSE
+;
+
+
+: KEY1 ( -- char ) \ 94
+  PENDING-CHAR @ 0 >
+  IF PENDING-CHAR @ -1 PENDING-CHAR ! EXIT THEN
+  BEGIN
+    EKEY  EKEY>CHAR 0=
+  WHILE
+    DROP
+  REPEAT
+;
+
+' KEY1? TO KEY?
+' KEY1 TO KEY
+

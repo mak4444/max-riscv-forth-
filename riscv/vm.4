@@ -1,0 +1,556 @@
+
+\
+\   Prefix any character with ! to use it literally in a macro.
+\   We will use "" to denote strings in macro arguments.
+\   https://sourceware.org/binutils/docs/as/Altmacro.html
+\ 
+
+
+    \ IMPORTANT! REGISTERS USED BY THE INTERPRETER:
+
+    \ Until I can get C Style defines to work you'll just have to read this, assembler.
+    \ The following registers must not be touched:
+
+    \ s0 - instruction pointer
+    \ s1 - data stack base pointer
+    \ s2 - data stack size
+    \ s3 - return stack base pointer
+    \ s4 - return stack size
+    \ s5 - memory top
+
+
+.DATA_SEG SEG_SET
+
+IVARIABLE	vm_flags
+ICREATE		vm_data_stack DATA_STACK_MAX_SIZE ICELLS IALLOT
+ICREATE		vm_return_stack RETURN_STACK_MAX_SIZE ICELLS IALLOT
+ICREATE		vm_scratch_pad 64 IALLOT
+IVARIABLE	vm_p_dictionary_start
+IVARIABLE	vm_p_dictionary_end
+IVARIABLE	vm_str_error_message
+
+ICREATE starting_interpreter_string S" starting outer interpreter..." $, $A C, 0 C,
+ICREATE waiting_for_key_str  S" waiting for key string..." $, $A C, 0 C,
+
+ICREATE error_msg_stack_overflow S" data stack overflow" $, $A C, 0 C,
+ICREATE error_msg_stack_underflow S" data stack underflow" $, $A C, 0 C,
+ICREATE error_msg_return_stack_overflow S" return stack overflow" $, $A C, 0 C,
+ICREATE error_msg_stack_underflow S" return stack underflow" $, $A C, 0 C,
+
+ICREATE show_data_stack_begin_str S" data   [ " $, 0 C,
+ICREATE show_return_stack_begin_str S" return [ " $, 0 C,
+ICREATE show_comma_sep_str S" , " $, 0 C,
+ICREATE show_stack_end_str S"  ]" $,  $A C, 0 C,
+
+ICREATE title_string S" Risc V Forth" $,  $A C, \ 0 C,
+
+.TEXT_SEG SEG_SET
+
+CODE vm_error_handler
+    li a1, UART_BASE
+    la a0, vm_str_error_message
+    lw a0, 0(a0)
+    call ' puts
+1:
+    j 1b
+    ret
+END-CODE
+
+CODE find_dict_end
+    # Args:
+    # a0 - ptr to first dict header
+    # Returns:
+    # a1 - ptr to last dict header
+    SaveReturnAddress
+1:
+    word_next a0, t0
+    lw t0, 0(t0)
+    mv a1, a0
+    mv a0, t0
+    bnez t0, 1b
+    RestoreReturnAddress
+    ret
+
+END-CODE
+
+CODE vm_run
+    SaveReturnAddress
+
+    # init dictionary
+    la t0, vm_p_dictionary_start
+    la t1, temit
+    sw t1, 0(t0)
+
+    mv a0, t1
+    call ' find_dict_end
+
+    la t0, vm_p_dictionary_end
+    sw a1, 0(t0)
+
+    # init stacks
+    la s1, vm_data_stack
+    li s2, 0
+    la s3, vm_return_stack
+    li s4, 0
+
+    la s5, _dataEnd
+
+    la s0, outerInterpreter_impl
+    call outerInterpreter_impl
+
+    RestoreReturnAddress
+    ret
+END-CODE
+
+\   0 w,
+ICREATE TEMIT
+word_header_first emit,   "emit",     0, key
+
+    PopDataStack a0
+    li a1, UART_BASE
+    call ' putc
+    end_word
+
+
+word_header       key,    "key",      0, loadCell, emit
+    li a0, UART_BASE
+    call ' getc_block         # char in a0
+    PushDataStack a0
+    end_word
+                                           
+word_header loadCell, "@", 0, store, key
+    PopDataStack t2
+    lw t3, 0(t2)
+    PushDataStack t3
+    end_word
+
+word_header store, "!", 0, loadByte, loadCell
+    PopDataStack t2
+    PopDataStack t3
+    sw t3, 0(t2)
+    end_word
+    
+word_header loadByte, "c@", 0, storeByte, store
+    PopDataStack t2
+    lb t3, 0(t2)
+    PushDataStack t3
+    end_word
+
+
+word_header storeByte, "c!", 0, branchIfZero, loadByte
+    PopDataStack t2
+    PopDataStack t3
+    sb t3, 0(t2)
+    end_word
+
+word_header branchIfZero, "b0", 0, branch, storeByte
+    PopDataStack t2
+    mv t1, s0 # s0 == PC
+    beqz t2, 1f
+    # no branch
+    addi s0, s0, CELL_SIZE # skip over literal
+    j 2f
+1:
+    addi t1, t1, CELL_SIZE # get literal
+    lw t1, 0(t1)
+    add s0, s0, t1         # add literal to PC
+2:
+    end_word
+
+branchIfZero_impl TO 'branchIfZero
+	
+\ .( bb=)  here h. key drop
+word_header branch, "b", 0, forth_add, branchIfZero
+    mv t1, s0
+    addi t1, t1, CELL_SIZE # get literal
+    lw t1, 0(t1)
+    add s0, s0, t1         # add literal to PC
+    end_word
+
+branch_impl TO 'branch
+
+word_header forth_add, "+", 0, literal, branch
+    PopDataStack t2
+    PopDataStack t3
+    add t2, t2, t3
+    PushDataStack t2
+    end_word
+    
+word_header literal, "literal", 0, dup, forth_add
+    addi s0, s0, CELL_SIZE
+    lw t3, 0(s0)
+    PushDataStack t3
+    end_word
+
+word_header dup, "dup", 0, return, literal
+    PopDataStack t2
+    PushDataStack t2
+    PushDataStack t2
+    end_word
+    
+word_header return, "r", 0, forth_minus, dup
+    PopReturnStack s0
+    end_word
+
+word_header forth_minus, "-", 0, swap, return
+    PopDataStack t2
+    PopDataStack t3
+    sub t3, t3, t2
+    PushDataStack t3
+    end_word
+    
+word_header swap, "swap", 0, drop, forth_minus
+    PopDataStack t2
+    PopDataStack t3
+    PushDataStack t2
+    PushDataStack t3
+    end_word
+
+word_header drop, "drop", 0, dup2, swap
+    PopDataStack t1
+    end_word
+    
+word_header dup2, "2dup", 0, findXT, drop
+    PopDataStack t1
+    PopDataStack t2
+    PushDataStack t2
+    PushDataStack t1
+    PushDataStack t2
+    PushDataStack t1
+    end_word
+    
+word_header findXT, "'", 0, forth_and, dup2
+    PopDataStack t5   # t5 == string ptr
+    PopDataStack t6   # t6 == string length
+    
+    la t4, vm_p_dictionary_end
+    lw t4, 0(t4)
+1:
+    word_code t4, t2
+
+    mv a0, t2
+    mv a1, t5
+    mv a2, t6
+    
+    PushReg t4
+    PushReg t5
+    PushReg t6
+
+    call ' strcmp_fs_cs
+
+    PopReg t6
+    PopReg t5
+    PopReg t4
+    
+    bnez a3, 3f # its a match! 
+    lw t1, OFFSET_PREV(t4)
+    beqz t1, 2f
+    mv t4, t1
+    j 1b
+2: 
+    PushDataStack zero
+    end_word
+3:
+    addi t4, t4, HEADER_SIZE
+    PushDataStack t4
+    end_word          
+    
+word_header forth_and, "&", 0, forth_or, findXT
+    PopDataStack t2
+    PopDataStack t3
+    and t2, t2, t3
+    PushDataStack t2
+    end_word
+
+word_header forth_or, "|", 0, forth_xor, forth_and
+    PopDataStack t2
+    PopDataStack t3
+    or t2, t2, t3
+    PushDataStack t2
+    end_word
+
+word_header forth_xor, "^", 0, here, forth_or
+    PopDataStack t2
+    PopDataStack t3
+    xor t2, t2, t3
+    PushDataStack t2
+    end_word
+    
+word_header here, "here", 0, rot, forth_xor
+    PushDataStack s5
+    end_word
+
+word_header rot, "rot", 0, push_return, here
+    PopDataStack t1
+    PopDataStack t2
+    PopDataStack t3
+    PushDataStack t2
+    PushDataStack t1
+    PushDataStack t3
+    end_word
+    
+word_header push_return, ">R", 0, pop_return, rot
+    PopDataStack t1
+    PushReturnStack t1
+    end_word
+
+word_header pop_return, "<R", 0, forth_fatoi, push_return
+    PopReturnStack t1
+    PushDataStack t1
+    end_word
+
+word_header forth_fatoi, "$", 0, show, pop_return
+    # ( buffer size -- num )
+    PopDataStack a1
+    PopDataStack a0
+    call ' fatoi
+    PushDataStack a2
+    end_word
+
+# Its good to have this one NOT in forth, because you can rely on it working correctly more
+# knowing that its not part of the forth system and it is very useful for debugging. There is just
+# less things to go wrong this way.
+word_header show, "show", 0, execute, forth_fatoi
+    # DATA STACK
+    la a0, show_data_stack_begin_str
+    li a1, UART_BASE
+    call ' puts
+
+    mv t1, s1               # t1 = data stack ptr
+    mv t2, s2               # t2 = data stack size
+    beqz t2, 3f \ data_stack_empty
+    add t3, t1, t2          # t3 = pointer end point
+    li t0, CELL_SIZE
+    sub t4, t3, t0 # penultimate pointer value
+1:
+    lw t0, 0(t1)
+
+    PushReg t1
+    PushReg t3
+    PushReg t4
+
+    mv a0, t0
+    la a1, vm_scratch_pad
+    li a2, 64
+    call ' itofa
+    
+    la a0, vm_scratch_pad
+    li a1, UART_BASE
+    call ' puts
+    PopReg t4
+    PopReg t3
+    PopReg t1
+
+    PushReg t3
+    PushReg t1
+    beq t1, t4, 2f  # skip comma if on last stack entry
+    la a0, show_comma_sep_str
+    li a1, UART_BASE
+    call ' puts
+2:
+    PopReg t1
+    PopReg t3
+    
+    
+    addi t1, t1, CELL_SIZE
+    bne t1, t3, 1b
+
+    la a0, show_stack_end_str
+    li a1, UART_BASE
+    call ' puts
+    end_word
+3: \ data_stack_empty:
+    la a0, show_stack_end_str
+    li a1, UART_BASE
+    call ' puts
+    end_word
+
+word_header execute, "execute", 0, showR, show
+    PopDataStack t2
+    jalr ra, t2, 0
+    end_word         # should never be hit
+ 
+
+word_header showR, "showR", 0, setHere, execute
+    # RETURN STACK
+    la a0, show_return_stack_begin_str
+    li a1, UART_BASE
+    call ' puts
+
+    mv t1, s3               # t1 = data stack ptr
+    mv t2, s4               # t2 = data stack size
+    beqz t2, 3f \ return_stack_empty
+    add t3, t1, t2          # t3 = pointer end point
+    li t0, CELL_SIZE
+    sub t4, t3, t0 # penultimate pointer value
+1:
+    lw t0, 0(t1)
+
+    PushReg t1
+    PushReg t3
+    PushReg t4
+
+    mv a0, t0
+    la a1, vm_scratch_pad
+    li a2, 64
+    call ' itofa
+    
+    la a0, vm_scratch_pad
+    li a1, UART_BASE
+    call ' puts
+    PopReg t4
+    PopReg t3
+    PopReg t1
+
+    PushReg t3
+    PushReg t1
+    beq t1, t4, 2f  # skip comma if on last stack entry
+    la a0, show_comma_sep_str
+    li a1, UART_BASE
+    call ' puts
+2:
+    PopReg t1
+    PopReg t3
+    
+    addi t1, t1, CELL_SIZE
+    bne t1, t3, 1b
+
+    la a0, show_stack_end_str
+    li a1, UART_BASE
+    call ' puts
+    end_word
+3:
+    la a0, show_stack_end_str
+    li a1, UART_BASE
+    call ' puts
+    end_word
+
+word_header setHere, "setHere", 0, return_stack_index, showR
+    PopDataStack s5
+    end_word
+
+word_header return_stack_index, "R[]", 0, getDictionaryEnd, setHere
+    PopDataStack t3
+    bgtz t3, 3f \ invalid_rstack_index
+    mv t0, s3 # s3 - return stack base pointer
+    mv t1, s4 # s4 - return stack size
+    addi t1, t1, 0 CELL_SIZE -
+    add t0, t0, t1 # t0 points to end of stack
+    
+    lw t4, 0(t0)
+
+    li t2, CELL_SIZE
+    mul t3, t3, t2
+    add t3, t0, t3
+    blt t3, s3, 3f \ invalid_rstack_index
+    PushDataStack t3
+    end_word
+3: \ invalid_rstack_index:
+    li t3, 0
+    PushDataStack t3
+    end_word
+
+word_header getDictionaryEnd, "getDictionaryEnd", 0, setDictionaryEnd, return_stack_index
+    # ( -- pDictEnd )
+    la t1, vm_p_dictionary_end
+    lw t1, 0(t1)
+    PushDataStack t1
+    end_word
+
+word_header setDictionaryEnd, "setDictionaryEnd", 0, toCString, getDictionaryEnd
+    # ( pDictEndNew -- )
+    PopDataStack t1
+    la t0, vm_p_dictionary_end
+    sw t1, 0(t0)
+    end_word
+
+word_header toCString, "toCString", 0, setNumInputHex, setDictionaryEnd
+    # ( inStringLen inString outCString -- )
+    PopDataStack a0
+    PopDataStack a1
+    PopDataStack a2
+    call ' forth_string_to_c
+    end_word
+
+word_header setNumInputHex, "ioHex", 0, setNumInputDec, toCString
+    la t1, vm_flags
+    lw t0, 0(t1)
+    ori t0, t0, NUM_IO_HEX_BIT
+    sw t0, 0(t1)
+    end_word
+
+word_header setNumInputDec, "ioDec", 0, equals, setNumInputHex
+    la t1, vm_flags
+    lw t0, 0(t1)
+    li t2, NUM_IO_HEX_BIT
+    xori t2, t2, -1
+    and t0, t0, t2 # t0 &= ~NUM_IO_HEX_BIT
+    sw t0, 0(t1)
+    end_word
+
+word_header equals, "=", 0, notEquals, setNumInputDec
+    PopDataStack t1
+    PopDataStack t2
+    beq t1, t2, 3f \ equals_equals
+    PushDataStack zero
+    j 4f \ equals_end
+3: \ equals_equals:
+    li t1, 1
+    PushDataStack t1
+4: \ equals_end:
+    end_word
+    
+word_header notEquals, "!=", 0, lessThan, equals
+    PopDataStack t1
+    PopDataStack t2
+    bne t1, t2, 4f \ nq_equals
+    PushDataStack zero
+    j 3f \ nq_end
+4: \ nq_equals:
+    li t2, 1
+    PushDataStack t2 
+3: \ nq_end:
+    end_word
+    
+word_header lessThan, "<", 0, greaterThan, notEquals
+    PopDataStack t1
+    PopDataStack t2
+    blt t2, t1, 4f \ lt
+    PushDataStack zero
+    j 3f \ lt_end
+4: \ lt:
+    li t2, 1
+    PushDataStack t2
+3: \ lt_end:
+    end_word
+
+word_header greaterThan, ">", 0, modulo, lessThan
+    PopDataStack t1
+    PopDataStack t2
+    bgt t2, t1, 4f \ gt
+    PushDataStack zero
+    j 3f \ gt_end
+4: \ gt:
+    li t1, 1
+    PushDataStack t1
+3: \ gt_end:
+    end_word
+
+word_header modulo, "mod", 0, forth_mul, greaterThan
+    PopDataStack t1
+    PopDataStack t2
+    rem t2, t2, t1
+    PushDataStack t2
+    end_word
+
+HERE CONSTANT last_vm_word  \ IMPORTANT: KEEP THIS LABEL POINTING TO THE LAST VM WORD.
+word_header forth_mul, "*", 0, first_system_word, modulo
+    PopDataStack t1
+    PopDataStack t2
+    mul t2, t2, t1
+    PushDataStack t2
+    end_word
+	
+end-code 
+
+	

@@ -1,0 +1,69 @@
+
+\ without nesting
+\+ X[BEGIN]  .( X[BEGIN] isn't unique ) ABORT
+  
+REQUIRE $! ~mak\place.f
+\- DALLOT : DALLOT ALLOT ;
+
+VARIABLE XSOURCE
+ 0x101 DALLOT
+0 VALUE X>IN
+0 VALUE XDP
+VARIABLE XFP CELL DALLOT
+VARIABLE XCURSTR
+
+: X[BEGIN]
+ >IN @ TO X>IN
+  DP @ TO XDP
+  SOURCE XSOURCE $!
+  SOURCE-ID FILE-POSITION
+ DROP
+\ CR ." XFP=<"  2DUP H. H. ." >"
+ XFP 2!
+  CURSTR @ XCURSTR !
+;
+
+: X[AGAIN]
+   XSOURCE COUNT DUP #TIB ! TIB SWAP MOVE
+   XCURSTR @ CURSTR !
+   X>IN  >IN  !
+   XDP   DP   !
+   XFP 2@  SOURCE-ID REPOSITION-FILE DROP
+\ CR ." [AGAIN]="  SOURCE TYPE  SOURCE-ID FILE-POSITION H. H. H.
+;
+
+: X[UNTIL]
+ 0= IF X[AGAIN] THEN
+;
+
+
+\EOF test
+
+0 VALUE XN
+
+: 2: :
+  1 TO XN
+ X[BEGIN]
+ ;
+
+: 2;
+ XN IF
+   XN 1- TO XN
+   X[AGAIN]
+   EXIT
+ THEN
+ POSTPONE ; ; IMMEDIATE
+
+2: HI   ." Hello!!"
+ [ CR .( PASS=) XN . ]
+2;
+
+: HA   ." HoHo!!"
+ [ CR .( PASS=) XN . ]
+;
+
+2: HU   ." HUUU!!"
+ [ CR .( PASS=) XN . ]
+2;
+
+HI HA

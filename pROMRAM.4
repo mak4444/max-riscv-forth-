@@ -1,0 +1,120 @@
+
+WARNING 0!
+[IFDEF] FFMAIN  ABORT [THEN]
+
+1 TO YDP_FL
+
+$1000 VALUE FILE_OFFSET
+$80000000 CONSTANT T-ORG
+$C000  CONSTANT CODE-SIZE
+$4000  CONSTANT DATA-SIZE
+T-ORG CODE-SIZE + CONSTANT D-ORG
+D-ORG DATA-SIZE + D-DP M!
+
+DBG_START FLOAD riscv\define.4th
+
+DBG_STOP
+
+HERE T-DP !
+
+$80000  ALLOCATE THROW   DP !
+
+HERE  TO MSTR_IMG
+ CM_SET
+   TLAST M@ mh. \
+
+ $0 ML,      \  adr start RAM
+ $1000  T-ORG $1000 - CM_SEG: .ELF_CM_SEG
+ CODE-SIZE  T-ORG CM_SEG: .TEXT_SEG	\   riscv  Forth area
+ DATA-SIZE  D-ORG CM_SEG: .DATA_SEG
+ $1000  $000000 CM_SEG: .ATR_SEG
+ $1000  $1000 CM_SEG: .ELF_END_SEG
+ 0 M,  \ img end
+
+.TEXT_SEG SEG_SET
+
+ S" riscv/GHEADERS.4"  THS_CREATE
+
+ S" riscv/src_VARS.4" INCLUDED
+ 0 ,   \ jmp start
+ S" riscv/ns16550a.4" INCLUDED_AL
+ S" riscv/prim.4" INCLUDED_AL
+ S" riscv/system.4" INCLUDED_AL
+ S" riscv/compile.4" INCLUDED_AL 
+ TLASTFLG  [IF] S"  TIMMED" $THS [THEN] 0 TO TLASTFLG 
+THS_CLOSE 
+ S" riscv/GHEADERS.4" INCLUDED_AL
+
+ TLAST M@ FORTH-WORDLIST L!
+ DHERE DP L!
+HERE 1+ 1 ANDC
+ T-ORG MDP!
+[RISCV] ' start j, [P]
+MDP!
+  
+  
+  HERE T-ORG - 1+ 1 ANDC CONSTANT T-SIZE
+  
+  HERE FILE_OFFSET + T-ORG - .( C=) DUP MH. TO FILE_OFFSET
+    
+ .ATR_SEG SEG_SET
+ S" riscv/elfatr.4" INCLUDED_AL
+ \ .( E=) HERE DUP H. FILE_OFFSET + DUP H. CONSTANT H_FILE_OFFSET
+\   $c8 1- iallot $77 C,
+
+.ELF_CM_SEG  SEG_SET
+
+ $7f c,  'E' c,  'L' c,  'F' c,
+  1		c,	\ 4 
+  1		c,	\ 5
+  1		c,	\ 6
+  0		c,	\ 7
+  0		l,	\ 8
+  0		l,	\ 0x0c
+  2		w,	\ 0x10 object file type ET_EXEC
+  $f3		w,	\ 0x12 architecture riscv
+  1		l,	\ 0x14 object file version EV_CURRENT
+  ' start	l,	\ 0x18 entry point virtual address
+  $34		l,	\ 0x1c program header file offset
+  H_FILE_OFFSET	l,	\ 0x20 section header file offset \ $AD18
+  1		l,	\ 0x24 flags
+  $34	w,	\ 0x28 ELF header size
+  $20	w,	\ 0x2a program header table entry size
+  1		w,	\ 0x2c program header table entry count (one pheader)
+  $28	w,	\ 0x2e section header table entry size
+  4		w,	\ 0x30 section header table entry count \ $C
+  3		w,	\ 0x32 section header string table index \ $B
+
+\ #pheaders
+  1	w,	\ 0x34 entry type PT_LOAD
+  0	w,
+  $1000	l,	\ 0x38 file offset
+  T-ORG		l,	\ 0x3c vaddr
+  T-ORG		l,	\ 0x40 paddr - where to put the bits
+  FILE_OFFSET $1000 -	l,	\ 0x44 file size   - backpatched later
+  FILE_OFFSET $1000 -	l,	\ 0x48 memory size - backpatched later
+  5		l,	\ 0x4c entry flags RWX
+  $1000		l,	\ 0x50 alignment
+  0		L,	\ 0x54 End of pheader
+  0		L,	\ 0x58
+\  0	L,	\ 0x5c
+\  0	L,	\ 0x60
+\  0	L,	\ 0x64
+\  0	L,	\ 0x68
+\  0		L,	\ 0x6C
+\  0		L,	\ 0x70
+
+
+  HERE $FFF + $FFF ANDC MDP! \ $1000 align
+
+ .ELF_END_SEG  SEG_SET
+ 
+
+COUNT_SEG_CLOSE
+.( RR73=) .S MCR
+
+ ' THERE?A TO THERE?
+
+\EOF
+https://riscv-non-isa.github.io/riscv-elf-psabi-doc/
+https://github.com/ForthHub

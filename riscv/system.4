@@ -1,0 +1,710 @@
+
+: 2DUP OVER OVER ;
+: TUCK SWAP OVER ;
+
+: +! ( n adr -- )  DUP @ ROT + SWAP ! ;
+: 1+! ( adr -- ) DUP @ 1+ SWAP ! ;
+: OR! ( n adr -- )  DUP @ ROT OR SWAP ! ;
+
+: CR $D EMIT  $A EMIT ;
+: SPACE $20 EMIT ;
+
+: HHH.
+
+  $f AND DUP 9 > IF 'A' 10 - ELSE '0' THEN +  EMIT ;
+
+: HH.
+
+   DUP u16/   DUP u16/   DUP u16/
+   DUP u16/   DUP u16/   DUP u16/   DUP u16/
+   
+   HHH.   HHH.   HHH.   HHH.
+   HHH.   HHH.   HHH.   HHH.
+   
+  SPACE	
+;
+
+: /STRING DUP>R - SWAP R> + SWAP ;
+: WITHIN  ( n lo hi+1 -- flag )  OVER -  >R  -  R> U< ;
+VARIABLE SP0
+: DEPTH ( -- n ) \ 94
+  SP@ SP0 @ - NEGATE 2 ARSHIFT ;
+
+: ZTYPE ( zadr -- )
+  BEGIN COUNT DUP WHILE EMIT REPEAT 2DROP
+;
+
+: TYPE ( c-addr1 u --- )
+\ Output the string starting at c-addr and length u to the terminal.
+  OVER + SWAP BEGIN 2DUP -  
+ WHILE DUP W@ EMIT 1+
+ REPEAT
+ 2DROP ;
+
+
+: COMPARE ( addr1 u1 addr2 u2 --- diff )
+\ Compare two strings. diff is negative if addr1 u1 is smaller, 0 if it
+\ is equal and positive if it is greater than addr2 u2.
+
+  ROT 2DUP - >R        
+  MIN DUP IF
+   >R
+   BEGIN
+    OVER C@ OVER C@ - IF
+     SWAP C@ SWAP C@ -  2RDROP EXIT
+    THEN 
+    1+ SWAP 1+ SWAP
+    R> 1- DUP >R 0=
+   UNTIL R>
+  THEN DROP
+  2DROP R> NEGATE
+;
+
+: CMOVE>	\ addr1 addr2 len --
+  dup if
+    tuck over + 1-			\ -- addr1 len addr2 addr2+len-1
+    2swap + -rot			\ -- addr1+len addr2 addr2+len-1
+    do  1- dup c@ i  c!  -1 +loop
+    drop  exit
+  THEN
+  2drop drop
+;
+
+: MOVE ( addr1 addr2 u -- ) \ 94	
+  >R 2DUP SWAP R@ + U<
+  IF 2DUP U<
+     IF R> CMOVE> ELSE R> CMOVE THEN
+  ELSE R> CMOVE THEN ;
+
+: D2*      ( D -- D*2 )        2DUP D+     ;
+: D0= OR 0= ;
+: DABS     ( d -- ud )         DUP 0< IF DNEGATE THEN  ;
+
+: UM/MOD       ( ud1 u1 -- rem quot )  ( divide unsigned double -> R Q )
+    ?DUP
+    IF      $20 >R           ( ud1 u1 | cnt )
+            BEGIN   R@
+            WHILE   R> 1- >R   
+                    >R DUP >R	D2*	R> 0<             ( ud1' . | cnt u1 )
+                    IF      R@ - SWAP 1+ SWAP           \ shift: cy -> need sub
+                    ELSE    DUP R@ U< 0=            \ need to subt?
+                            IF      R@ - SWAP 1+ SWAP
+                            THEN
+                    THEN    R>
+            REPEAT  
+            RDROP DROP SWAP
+    ELSE    2DROP -1 -1
+    THEN 
+;
+
+: U/MOD 0 SWAP UM/MOD ;
+
+
+: SEARCH-NFA ( c-addr u wid --- 0 | nfa )
+	@
+	BEGIN   DUP \ ." sn-" dup hh.
+	WHILE
+	>R 2DUP	R@ COUNT COMPARE 0= 
+		IF 2DROP R>
+		BREAK
+ 	R> CDR
+	REPEAT
+	2DROP DROP 0 \ Not found.
+;
+
+: CHAR-UPPERCASE ( c -- c1 )
+  DUP [CHAR] a [CHAR] z 1+ WITHIN IF 32 - EXIT THEN
+;
+
+: CEQUAL-U ( a1 u1 a2 u2 -- flag )
+  ROT TUCK <> IF DROP 2DROP FALSE EXIT THEN
+  0 ?DO ( a1i a2i ) 2DUP
+  C@ CHAR-UPPERCASE SWAP C@ CHAR-UPPERCASE <> IF 2DROP UNLOOP FALSE BREAK
+  SWAP 1+ SWAP 1+
+  LOOP 2DROP TRUE
+;
+
+: USEARCH-NFA ( c-addr u wid --- 0 | nfa )
+	@
+	BEGIN   DUP \  CR ." S=" DUP H.  DUP 8 TYPE
+	WHILE
+	>R 2DUP	R@ COUNT CEQUAL-U
+		IF 2DROP R>
+		BREAK
+ 	R> CDR
+	REPEAT
+	2DROP DROP 0 \ Not found.
+;
+
+' USEARCH-NFA ->DEFER SEARCH-NFA
+
+: SEARCH-WORDLIST ( c-addr u wid --- 0 | xt 1 xt -1)
+\ Search the wordlist with address wid for the name c-addr u.
+\ Return 0 if not found, the execution token xt and -1 for non-immediate
+\ words and xt and 1 for immediate words.
+        SEARCH-NFA DUP
+	IF  DUP NAME> SWAP
+		NAME>F C@ 1 AND 1- 1 OR
+	THEN
+
+;
+
+: FATAL-HANDLER CR ." FATAL ERROR" CR BEGIN AGAIN ;
+
+: CATCH ( i*x xt -- j*x 0 | i*x n ) \ 94 EXCEPTION
+  SP@ >R  HANDLER @  >R
+  RP@ HANDLER !
+  EXECUTE
+  R> HANDLER !
+  RDROP
+;
+
+: THROW ( k*x n -- k*x | i*x n ) \ 94 EXCEPTION  
+  ?DUP
+  IF
+   ( SAVEERR )  HANDLER @ \ A@ 
+     ?DUP
+     IF
+      RP!
+        R> HANDLER !
+        R> SWAP >R
+        SP! DROP R>
+     ELSE FATAL-HANDLER THEN
+  THEN
+;
+
+T: ABORT -1 THROW ;
+
+: ?THROW        \ k*x flag throw-code -- k*x|i*x n
+\ *G Perform a *\fo{THROW} of value *\i{throw-code} if flag is non-zero.
+  SWAP IF THROW THEN DROP
+;
+
+: (ABORT'') SWAP
+ IF ZTYPE -2 THROW THEN
+ DROP
+;
+
+: ?PAIRS        \ x1 x1 --
+  XOR -22 ?THROW ;
+
+ICREATE BASE $A , ( -- a-addr ) \ 94
+
+: HEX $10 BASE ! ;
+: DECIMAL $A BASE ! ;
+
+: HOLD ( char -- ) \ 94
+  HLD @ 1- DUP HLD ! C!
+;
+
+: <# ( -- ) \ 94
+  PAD 1- HLD !
+  0 PAD 1- C!
+;
+
+: # ( ud1 -- ud2 ) \ 94
+  0 BASE @ UM/MOD >R BASE @ UM/MOD R>
+  ROT DUP 10 < 0= IF 7 + THEN 48 + 
+  HOLD
+;
+
+: #S ( ud1 -- ud2 ) \ 94
+  BEGIN
+    # 2DUP D0=
+  UNTIL
+;
+
+: #> ( xd -- c-addr u ) \ 94
+  2DROP HLD @ PAD OVER - 1-
+;
+
+: SIGN ( n -- ) \ 94
+  0< IF [CHAR] - HOLD THEN
+;
+
+: (D.) ( d -- addr len )
+  DUP >R DABS <# #S R> SIGN #>
+;
+
+: SPACES       ( N  -- )
+    0MAX 80 MIN ?DUP
+    IF   BEGIN SPACE 1- 0= UNTIL DROP
+    THEN
+;
+
+: D. ( d -- ) \ 94 DOUBLE
+  (D.) TYPE SPACE ;
+
+: S>DU  0 ;
+: S>D  DUP 0< ;
+
+: . ( n -- )  S>D D. ;
+
+: U. ( u -- )   0 D. ;
+
+: H.
+  BASE @ HEX SWAP U. BASE ! ;
+
+: 0.R
+  >R 0 <# #S #> R> OVER - 0 MAX DUP 
+    IF 0 DO [CHAR] 0 EMIT LOOP
+    ELSE DROP THEN TYPE ;
+
+: >PRT
+  DUP BL U< IF DROP [CHAR] . THEN
+;
+
+: PTYPE
+  0 ?DO
+ COUNT >PRT EMIT LOOP DROP ;
+
+CREATE DUMP_BASE 0 ,
+
+: DUMP ( addr u -- ) \ 94 TOOLS
+  DUP 0= IF 2DROP EXIT THEN
+  BASE @ >R HEX
+  $F + $10 U/ 0 DO
+\    I IF CR THEN
+    CR DUP 4 0.R SPACE
+    SPACE DUP $10 0
+      DO I 4 MOD 0= IF SPACE THEN
+        DUP C@ 2 0.R SPACE 1+
+      LOOP SWAP $10  PTYPE
+  LOOP DROP R> BASE !
+;
+
+: .SN ( n --)
+  DUP 0< IF ." Stack exhaustion" SP0 @ SP! THEN
+   >R BEGIN
+         R@
+      WHILE
+        SP@ R@ 1- CELLS + @ .
+        R> 1- >R
+      REPEAT RDROP
+;
+
+T: .S DEPTH .SN ;
+
+ICREATE FORTH-WORDLIST 
+ $777770 L, \ last word
+ 0 L, \ woc link
+ HERE 4 + L,
+ S" FORTH" S",
+
+ICREATE CONTEXT FORTH-WORDLIST L,
+ 0 L, 0 L,  0 L,  0 L,  0 L,  0 L, 
+ 0 L, 0 L,  0 L,  0 L,  0 L,  0 L, 
+HERE CONTEXT -   0 L, 
+ 
+CONSTANT CONTEXT_SIZE
+
+ICREATE CURRENT FORTH-WORDLIST L,
+ICREATE VOC-LIST FORTH-WORDLIST TCELL+ L,
+
+T: FORTH FORTH-WORDLIST CONTEXT ! ;
+
+: SFIND ( addr len --- addr len 0| xt 1|xt -1 )
+\ Search all word lists in the search order for the name in the
+\ counted string at c-addr. If not found return the name address and 0.
+\ If found return the execution token xt and -1 if the word is non-immediate
+\ and 1 if the word is immediate.
+\ ." SFIND=<"
+  CONTEXT
+  BEGIN	DUP @ \ DUP HH.
+  WHILE	>R
+	2DUP  R@  @  SEARCH-WORDLIST ?DUP
+	IF    RDROP 2NIP EXIT \ Exit if found.
+	THEN
+	R> CELL+
+  REPEAT @
+;
+
+ATIB VALUE TIB
+: SOURCE TIB  #TIB @ ;
+
+
+: ACCEPT1 ( C-ADDR +N -- +N' ) \ GET LINE FROM TERM'L
+   OVER + 1- OVER      \ SA EA A
+   BEGIN
+ KEY       \ SA EA A C
+   DUP $D <>
+  OVER $A <> AND
+  WHILE
+       DUP 27 = IF  DROP DUP C@ EMIT  ELSE
+       DUP EMIT
+       DUP   $7F  = IF DROP 8 EMIT $20 EMIT 8 EMIT
+                     2- >R OVER 1- R> UMAX ELSE
+
+       DUP 9  = IF  DROP DUP 8 SPACE
+                    >R OVER R>    \ SA EA SA A
+                    TUCK  -   \ SA EA SA A-SA
+                    8 / 1+ 8 * +  ELSE
+	OVER  C! THEN THEN THEN
+	1+ OVER UMIN  \ SA EA A
+   REPEAT                          \ SA EA A C
+
+   DROP NIP SWAP -
+
+ CR ;
+ 
+ ' ACCEPT1 ->DEFER ACCEPT
+
+: EndOfChunk ( -- flag )
+ >IN @ SOURCE NIP < 0=        \ >IN 
+;
+
+: IsDelimiter ( char -- flag )
+ $20 1+ < ;
+
+: CharAddr ( -- c-addr )
+  SOURCE DROP >IN @ +
+;
+
+: PeekChar ( -- char )
+  CharAddr C@
+;
+
+: GetChar ( -- char flag )
+ EndOfChunk
+ IF 0 FALSE
+	ELSE PeekChar TRUE THEN ;
+
+: OnDelimiter ( -- flag )
+	GetChar SWAP IsDelimiter AND ;
+
+: SkipDelimiters ( -- ) \ 
+	BEGIN	OnDelimiter
+	WHILE	>IN 1+!
+	REPEAT >IN @   >IN_WORD ! ;
+
+: OnNotDelimiter ( -- flag )
+  GetChar SWAP IsDelimiter 0= AND ;
+
+: SkipWord ( -- ) \ 
+ BEGIN	OnNotDelimiter
+ WHILE	>IN 1+!
+ REPEAT ;
+
+
+: ParseWord ( -- c-addr u )
+ CharAddr
+ >IN @ 
+ SkipWord
+ >IN @ - NEGATE ;
+
+: PSKIP ( char "ccc<char>" -- )
+\ 
+  BEGIN
+    DUP GetChar >R = R> AND
+  WHILE
+    >IN 1+!
+  REPEAT DROP
+;
+
+: PARSE-NAME ( -- c-addr u )
+  SkipDelimiters
+  ParseWord
+  >IN @ 1+ #TIB @ MIN >IN !   \ 
+;
+
+: SkipUpTo ( char -- ) \ 
+  BEGIN
+    DUP GetChar >R <> R> AND
+  WHILE
+    >IN 1+!
+  REPEAT DROP
+;
+
+: PARSE ( char "ccc<char>" -- c-addr u ) \ 94 CORE EXT
+  CharAddr >IN @
+  ROT SkipUpTo
+  >IN @ - NEGATE
+  >IN 1+!
+;
+
+: QUERY	( -- )
+
+	TIB 180 ACCEPT #TIB !
+	0 >IN !  0 SOURCE + C! ;
+
+: REFILL ( -- flag ) \ 94 FILE EXT
+  QUERY TRUE
+;
+
+4 CONSTANT CELL
+ICREATE DP 0 L,
+
+T: HERE DP @ ; 
+T: ALLOT DP +! ;
+T: , HERE ! CELL ALLOT ;
+\ compile
+: COMPILE, ( addr -- )
+ HERE -
+ $EF
+ OVER  $7FE AND $14 << OR
+ OVER  $800 AND 9 << OR
+ OVER  $FF000 AND OR
+ SWAP  $100000 AND $B << OR ,
+;
+
+: [LIT,] R> DUP @ SWAP CELL+ >R ;
+
+: LIT, ( n -- ) ['] [LIT,] COMPILE, , ;
+
+: DIGIT ( C, N1 -> N2, TF / FF ) 
+\ N2 - 
+\ 
+   >R
+   [CHAR] 0 - 10 OVER U<
+   IF 
+      DUP [CHAR] A [CHAR] 0 -     < IF  RDROP DROP 0 EXIT      THEN
+      DUP [CHAR] a [CHAR] 0 -  1- > IF [CHAR] a  [CHAR] A - -  THEN
+          [CHAR] A [CHAR] 0 - 10 - -
+   THEN R> OVER U> DUP 0= IF NIP THEN ;
+
+: >NUMBER ( ud1 c-addr1 u1 -- ud2 c-addr2 u2 ) \ 94
+  BEGIN
+    DUP
+  WHILE
+    >R
+    DUP >R
+    C@ BASE @ DIGIT 0=     \ ud n flag
+    IF R> R> EXIT THEN     \ ud n  ( ud = udh udl )
+    SWAP BASE @ UM* DROP   \ udl n udh*base
+    ROT BASE @ UM* D+      \ (n udh*base)+(udl*baseD)
+    R> 1+ R> 1-
+  REPEAT
+;
+
+VARIABLE &DOUBLE?
+VARIABLE &?MINUS
+
+: DOUBLE? &DOUBLE? @ ;
+: ?MINUS  &?MINUS @ ;
+
+: NUMBER?       ( addr len -- d1 f1 )
+                FALSE &DOUBLE? !                \ initially not a double #
+                OVER C@ [CHAR] - =
+                OVER AND DUP>R
+                IF      1 /STRING
+                THEN
+                DUP 0=
+                IF      RDROP      FALSE &?MINUS !
+                        2DROP 0 0 FALSE EXIT   \ always return zero on failure
+                THEN
+                0 0 2SWAP >NUMBER
+                OVER C@ [CHAR] . =              \ next char is a '.'
+                OVER SWAP 0< AND                     \ more chars to look at
+                IF \     DUP 1- TO DP-LOCATION
+			BEGIN
+                        1 /STRING >NUMBER
+                        DUP 0=
+                        IF      TRUE &DOUBLE? ! \ mark as a double number
+                        THEN
+  OVER C@ [CHAR] . <>			UNTIL 
+                THEN    NIP 0=
+                R> ?MINUS XOR
+                IF      >R DNEGATE R>
+                THEN  FALSE &?MINUS !
+;
+
+: NUMBER,      ( d -- )
+                DOUBLE? 0= IF DROP THEN
+                STATE @
+                IF      DOUBLE? IF  SWAP  LIT,  THEN
+                        LIT,
+                THEN
+;
+
+: XXX-SLITERAL ( addr u -> d true | false ) 
+   NUMBER?
+ IF NUMBER, TRUE  EXIT
+ THEN
+   2DROP FALSE
+;
+
+: BIN-SLITERAL ( addr u -> d true | false )
+  BASE @ >R 2 BASE !
+  XXX-SLITERAL
+  R> BASE !
+;
+
+: HHH-SLITERAL ( addr u -> d true | false )
+  BASE @ >R HEX
+  2- SWAP 2+ SWAP
+  XXX-SLITERAL
+  R> BASE !
+;
+
+: UPC  ( c -- c' )
+   DUP  [CHAR] a [CHAR] z 1+ WITHIN
+   IF  0x20 ANDC
+   THEN   ;
+
+: SNUMBER ( addr len -- d1 )
+ NUMBER? 0= THROW ;
+
+: NUMBER ( a1 -- d1 )
+\ Convert count delimited string at a1 into a double number.
+ COUNT NUMBER? 0= THROW ;
+
+: ?SLITERAL3_H  ( c-addr u -- ... )
+  DUP 1 >
+     IF
+
+	 2DUP 2>R
+         OVER C@ [CHAR] - = DUP  &?MINUS !
+         IF    1 /STRING 
+         THEN
+
+         OVER W@ 0x7830 ( 0x) = 
+         IF     HHH-SLITERAL
+		IF RDROP RDROP
+		ELSE -13 THROW
+		THEN EXIT
+         THEN
+
+          OVER C@ [CHAR] $ = 
+         IF 1+ SWAP 1- SWAP HHH-SLITERAL
+		IF RDROP RDROP
+		ELSE -13 THROW
+		THEN EXIT
+         THEN
+
+              2DUP + 1- C@ UPC [CHAR] H =
+         IF  1+  SWAP 2- SWAP  HHH-SLITERAL
+		IF RDROP RDROP
+		ELSE -13 THROW
+		THEN EXIT
+         THEN
+
+             2DUP + 1- C@ UPC [CHAR] B = BASE @ 0x10 <> AND
+         IF   1- BIN-SLITERAL
+		IF RDROP RDROP 
+		ELSE -13 THROW
+		THEN EXIT
+         THEN
+
+             OVER @ 0xFF00FF  AND 0x270027 ( '\0')  = 
+             OVER 3 = AND
+         IF  DROP @ 8 RSHIFT 0xFF AND
+            STATE @ IF LIT, THEN RDROP RDROP  EXIT
+         THEN 
+
+     2DROP 2R>
+  THEN
+
+  2DUP 2>R 
+
+ XXX-SLITERAL 0=
+  IF  2R>
+ 2DROP -1
+       IF  -13 THROW \ ABORT"  -???"
+       ELSE  THROW THEN
+  ELSE RDROP RDROP
+  THEN
+;
+
+' ?SLITERAL3_H ->DEFER ?SLITERAL
+
+: ?STACK ( -> ) \ 
+ SP@ SP0 @ SWAP U< IF SP0 @ SP! -4 THROW THEN
+;
+
+: INTERPRET_ ( -> ) \ 
+  SAVEERR? ON
+  BEGIN	PARSE-NAME DUP
+  WHILE SFIND ?DUP
+	IF     STATE @ =
+		IF   COMPILE,
+		ELSE EXECUTE
+		THEN
+	ELSE 	?SLITERAL
+        THEN
+
+    ?STACK \  MEM_TST \  CACHBREAK
+  REPEAT 2DROP
+;
+
+' INTERPRET_ ->DEFER INTERPRET
+
+: OK..  ." OK" CR ;
+' OK.. ->DEFER OK.
+
+: QUIT
+ BEGIN  REFILL
+ WHILE  INTERPRET OK.
+ REPEAT ;
+   
+: ERROR_DO1
+
+	DUP 0= IF DROP BREAK
+\	SAVEERR
+	CR ERRTIB COUNT TYPE CR
+\ ER>IN @ BEGIN SPACE 1- DUP 0 MAX 0= UNTIL
+	ERRTIB 1+ ER>IN @ $3F AND 0
+   ?DO COUNT 9 = IF 9 EMIT ELSE SPACE THEN  LOOP DROP
+ ." ^" \ DROP
+	CR ." ERR=" . 
+\	CR  SP0 @ SP!   STATE 0!
+;
+
+' ERROR_DO1 ->DEFER ERROR_DO
+
+T: ' PARSE-NAME SFIND 0= IF -13 THROW THEN  ; \ ???????
+
+T: ['] '  LIT, ; IMMEDIATE
+
+: CHAR ( "<spaces>name" -- char ) \ 94
+ PARSE-NAME DROP C@ ;
+
+
+: MAIN_CYCLE
+ BEGIN \	[COMPILE] [
+\	&?MINUS 0!
+	['] QUIT CATCH
+	DUP $2BAE = IF DROP BREAK
+	ERROR_DO
+ AGAIN
+;
+
+: ttkk BEGIN KEY DUP H. DUP EMIT $20 = UNTIL ;
+
+: FNAIN
+	SP@  SP0 !
+	FORTH
+	." WORDS - words list" CR
+	." DUMP ( adr len ) - mem view" CR
+	." Alt-a c q Enter - QEMU exit" CR
+	MAIN_CYCLE
+
+   ;
+
+: ID. COUNT TYPE SPACE ;
+
+: WORDS
+  CONTEXT @ @
+ BEGIN DUP
+ WHILE DUP ID. CDR
+ REPEAT DROP ;
+
+
+ICREATE title_string S" Risc V Forth" $,  $A C,  0 C,
+
+CODE start
+
+    li sp, RAM_END
+	li a0, -0x4000
+	add s0,sp, a0
+    li a0, UART_BASE
+
+    call ' initUart
+
+    li a1, UART_BASE
+    la a0, title_string
+    call ' puts
+
+    j ' FNAIN
+
+END-CODE
+
