@@ -34,7 +34,7 @@ REQUIRE CASE lib/ext/case.f
 0 VALUE ADDR_OFF
 
 : ?NAME>S      ( CFA -- )
-	1+ NEAR_NFA 
+    NEAR_NFA 
 	>R DUP
 	IF ."  ( " DUP MCOUNT TYPE 
 	     NAME> R> - DUP
@@ -55,7 +55,6 @@ MODULE: DISARM
 0 VALUE OPCODE
 VECT OP.
 
-
 :  [|;] (  cod  cod1 cod2  <NAME>  -- )
    TO OP_NAME
    OPCODE = 
@@ -68,7 +67,6 @@ VECT OP.
      POSTPONE  ;
 ; IMMEDIATE
 
-
 : .-  S>D (D.) TYPE ;
 : U.-  0 (D.) TYPE ;
 : H.-   BASE M@ HEX SWAP U>D (D.) TYPE BASE M! ;
@@ -79,9 +77,7 @@ VECT OP.
 : OP_TYPE 
 	TAB OP_NAME   MCOUNT 1- TYPE ;
 
-
 : NOP_TP TAB OP_TYPE DROP ;
-
 
 : REG. ( reg -- )
 	DUP 0= IF DROP ." zero" BREAK
@@ -127,40 +123,18 @@ VECT OP.
 
 : C.SWSP_TP
  TAB OP_TYPE TAB
- DUP 2 >> $7 AND 8 OR REG,.
+ DUP 2 >> $7 AND REG,.
  DUP 7 >> $3C AND
  SWAP 1 >> $C0 AND OR .- ." (sp)"
-
 ;
 
 : C.LWSP_TP
  TAB OP_TYPE TAB
- DUP 7 >> $7 AND 8 OR REG,.
+ DUP 7 >> $7 AND REG,.
  DUP $1C  2 << AND 2 >>
  OVER $20 7 << AND 7 >> OR
  SWAP $C0 4 >> AND 4 << OR  .- ." (sp)"
-
 ;
-
-/*
-: >C.LW, (  r1 ofset r2 cod --  )
- BASE M@ >R
-  >R 
-\ HEX F7_ED
-   DUP $18 AND 8 <> ( x8..x15 ) IF -333 THROW THEN 
-  OVER 3 AND IF -333 THROW THEN
-  $7 AND 7 <<
-  OVER $4 AND 4 << OR
-  OVER $38 AND 7 << OR  \ r cod+ 
-  SWAP $40 AND 1 >> OR  \ r cod+ 
-  SWAP $7 AND 2 << OR \ cod'
-   R>  OR
-  W,
-  0 TO PARM_HESH
-
-  R> BASE M!
-;
-*/
 
 : C.LW_TP
  TAB OP_TYPE TAB
@@ -168,9 +142,7 @@ VECT OP.
   DUP  $4  4 << AND 4 >>
   OVER $38 7 << AND 7 >> OR
   OVER $40 1 >> AND 1 << OR .- 
-   
-   7 >> $7 AND ." (" 8 OR REG. ." )"
-
+    7 >> $7 AND ." (" 8 OR REG. ." )"
 ;
 
 : C.BZ_TP
@@ -215,8 +187,8 @@ VECT OP.
  DUP   $7FE $14 << AND $14 >>
  OVER  $800   9 << AND   9 >> OR
  OVER  $FF000 AND OR 
- SWAP  $80000000 AND $B >> OR $100000 XOR $100000 - OVER + 2- ." 0x" H.-
- 
+ SWAP  $80000000 AND $B >> OR
+ $100000 XOR $100000 - OVER + 2- ." 0x" DUP H.- ?NAME>S
 ;
 
 : R-TYPE.
@@ -252,7 +224,6 @@ VECT OP.
 	DUP 7 >> $1F AND REG,. 
 	DUP $F >> $1F AND REG,. 
 	 $14 >>  $800 XOR $800 - OVER + ." 0x" H.-
-	
 ;
 
 : S-TYPE.
