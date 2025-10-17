@@ -95,7 +95,6 @@ VECT OP.
 
 : SL64_TP
  TAB OP_TYPE TAB
-\	." x"	 $7 >> $1F AND .- 
 	$7 >> $1F AND REG.
 ;
 
@@ -123,14 +122,14 @@ VECT OP.
 
 : C.SWSP_TP
  TAB OP_TYPE TAB
- DUP 2 >> $7 AND REG,.
+ DUP 2 >> $1F AND REG,.
  DUP 7 >> $3C AND
  SWAP 1 >> $C0 AND OR .- ." (sp)"
 ;
 
 : C.LWSP_TP
  TAB OP_TYPE TAB
- DUP 7 >> $7 AND REG,.
+ DUP 7 >> $1f AND REG,.
  DUP $1C  2 << AND 2 >>
  OVER $20 7 << AND 7 >> OR
  SWAP $C0 4 >> AND 4 << OR  .- ." (sp)"
