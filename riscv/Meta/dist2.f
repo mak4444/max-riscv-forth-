@@ -159,7 +159,7 @@ VECT OP.
 ;
 
 : C.J_TP
- OP_TYPE TAB
+ TAB OP_TYPE TAB
  DUP  $E  2 << AND 2 >>
  OVER $10 7 << AND 7 >>  OR  
  OVER $20 3 >> AND 3 <<  OR 
@@ -167,7 +167,7 @@ VECT OP.
  OVER $400 2 >> AND 2 << OR
  SWAP $B40 1 << AND 1 >> OR
  $800 XOR $800 -
- OVER + ." 0x" H.-
+ OVER + ." 0x" DUP H.- ?NAME>S
 
 ;
 
@@ -411,7 +411,7 @@ EXPORT
   DUP 0xE003 AND TO OPCODE
 
   OPCODE $8002  \ ." CAD=" 2DUP H. H.
-  = IF  TAB 
+  = IF  TAB TAB
 	DUP $1000 AND	IF ." c.add	" ELSE ." c.mv	" THEN
  DUP 7 >> $1F AND REG,.
   2 >> $1F AND REG.

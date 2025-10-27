@@ -194,7 +194,7 @@ FLOAD ~mak/lib/multipass.4
 : C.ADD, 2 << SWAP 7 << OR $9002 OR W, 0 TO PARM_HESH ;
 : MV, C.MV, ;
 
-:  >C.LI 
+:  >C.LI ( r imm --  )
   DUP $1F AND
   SWAP 
   $20 AND
