@@ -244,7 +244,7 @@ VECT OP.
  DUP   $1E   7 <<   AND 7 >>
  OVER  $7E0  $14 << AND $14 >> OR
  OVER  $800  4 >>   AND 4 <<   OR
- SWAP  $1000 $13 << AND $13 >> OR $400 XOR $400 - OVER + 2- ." 0x" H.-
+ SWAP  $1000 $13 << AND $13 >> OR $1000 XOR $1000 - OVER + 2- ." 0x" H.-
 ;
 
 : nop,	1   |;
