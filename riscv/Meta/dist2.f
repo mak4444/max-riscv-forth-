@@ -230,7 +230,7 @@ VECT OP.
    OP_TYPE TAB
 	DUP $14 >> $1F AND REG,. 
 	DUP  $1f   $7 << AND $7 >>
-	OVER $7E0  $15 << AND $15 >> OR $400 XOR $400 - .-
+	OVER $FE0  $14 << AND $14 >> OR $800 XOR $800 - .-
 	DUP $F >> $1F AND ." (" REG. ." )"
 	DROP
 ;

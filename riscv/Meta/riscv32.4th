@@ -243,7 +243,7 @@ FLOAD ~mak/lib/multipass.4
  SWAP $F << OR  \ r1 ofset cod+
  OVER $1f  AND $7 << OR
 \ SWAP $7E0 AND $E << OR  \ r1 cod++
- SWAP $7E0 AND $15 << OR  \ r1 cod++
+ SWAP $FE0 AND $14 << OR  \ r1 cod++
  SWAP $14 << OR  \ cod'
  L, 0 TO PARM_HESH ;
 
