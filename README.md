@@ -3,7 +3,7 @@
   in \riscv files with  _AL prefix - listing
 
   For trace the compilation process, use the F7_ED command 
-## contribution
+## Contributing
 
  https://github.com/JimMarshall35/riscv-forth
 
