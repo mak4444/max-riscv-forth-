@@ -67,7 +67,6 @@ REQUIRE DISARM	riscv\Meta\dist2.f
 : CMOVE ( c-addr1 c-addr2 u --- )
 \ Copy u bytes starting at c-addr1 to c-addr2, proceeding in ascending
 \ order.
-
    DUP IF  >R
    BEGIN
     OVER 
@@ -102,7 +101,10 @@ REQUIRE DISARM	riscv\Meta\dist2.f
 ;
 
 : M\ ( POSTPONE \) ; IMMEDIATE
-\ REQUIRE TINLINE? riscv\Meta\macroopt.4
+ REQUIRE TINLINE? riscv\Meta\macroopt.4
+ REQUIRE DoTDTST riscv\Meta\OptTr.f 
+ REQUIRE .OP0 riscv\Meta\DOP.4
+
 
 
 : ><DP DP M@ T-DP M@
@@ -126,29 +128,35 @@ REQUIRE DISARM	riscv\Meta\dist2.f
 	   
 : TC-LIT, ( n -- )
 \ compile code for a literal
-	DUP,  [RISCV] a0 SWAP li, [P]
+\	F7_ED
+	TOPT_INIT
+	 'DUP	T_INLINE,
+	[RISCV] a0 SWAP li, [P]
+	TOPT_CLOSE
 ;
 
 : ALIT, ( n -- )
 \ compile code for a literal
-	DUP,  [RISCV] a0 SWAP la, [P]
+	TOPT_INIT
+	'DUP T_INLINE,
+	[RISCV] a0 SWAP la, [P]
+	TOPT_CLOSE
 ;
-
 	   
 : S_COMPILE, [RISCV]  CALL, [P] ;
 
-: T_COMPILE,
-   S_COMPILE,
-
-;
+: T_COMPILE,   S_COMPILE, ;
 
 : TCOMPILE, ( tcfa -- )  
   DUP THERE? 0=
   IF  ?CONST IF EXECUTE TC-LIT, BREAK
       -9 THROW
   THEN
-
-\	TINLINE? IF  TINLINE, BREAK
+\ F7_ED
+	TINLINE?
+	IF
+	TINLINE,
+	BREAK
 	T_COMPILE,
  ;
  
@@ -177,9 +185,7 @@ REQUIRE DISARM	riscv\Meta\dist2.f
 [IFDEF] TEXEC_BUF
 : EXEC_BUF_SET
 	>IN M@ >R
-	PARSE-NAME
- SFIND
-
+	PARSE-NAME SFIND
 	IF
 			TEXEC_BUF TEXEC_BUF CELL+ TEB_SIZE MOVE
 			TEXEC_KEY TEXEC_KEY CELL+ TEB_SIZE MOVE
@@ -235,7 +241,6 @@ REQUIRE DISARM	riscv\Meta\dist2.f
  :#THS
   EXEC_BUF_SET
 	HEADER 
-\  [RISCV] a1 'DOVECT jal, [P]
   [RISCV] a1 'DOVECT $6F J-TYPE [P]
  L,
 ;  
@@ -250,12 +255,10 @@ REQUIRE DISARM	riscv\Meta\dist2.f
 ;
 
 : CM_SEG2: ( len segLD segRUN  -- )
-\  HERE $C + OVER >SEG_DT
   HERE OVER ><DP MCREATE  ML,  M, 1 ML, ><DP \ len segLD segRUN
   SWAP ML,	 \ len segRUN
   OVER 2/ ML, 0 ML,
   OVER IALLOT \ len segRUN
-\  SWAP 2/ SWAP
   >SEG_DT_H
  ; 
 
@@ -267,7 +270,6 @@ REQUIRE DISARM	riscv\Meta\dist2.f
 
 : SEGINFO
   DUP  ."  LAST ADR="  L@ MH. CR
-\  DUP  ."  LAST ="  4+ CELL+  L@ MH. CR
     4+ @
   DUP  ." LOAD ADR =" L@ MH. CR
   DUP  ." MAX SIZE =" 4+ L@ MH. CR
@@ -308,7 +310,6 @@ REQUIRE DISARM	riscv\Meta\dist2.f
 	[RISCV]	a0 SWAP jal, [P]
 	S",
 	HERE 1 AND IF 0 C, THEN
-
 ;
 
 : CLITERAL
@@ -390,22 +391,25 @@ REQUIRE DISARM	riscv\Meta\dist2.f
 	#THEADER
 	;
 
-
-
 1	CONSTANT IF_FLAG
 11	CONSTANT IF.F_FLAG
 13	CONSTANT HEAD_FLAG
 3	CONSTANT BEGIN_FLAG
 7	CONSTANT DO_FLAG1
 
-
 : AHEAD ?OLD AHEAD	?COMP HERE 0 W, HEAD_FLAG	; IMMEDIATE
 
 : IF
 	?OLD IF	
 	?COMP
-	 $85aa W, \	mv	a1,a0
-	 DROP,
+
+	TOPT_INIT
+	[RISCV]
+	 $85aa W,  TOPT \	mv	a1,a0
+	'DROP	T_INLINE,
+	[P]  
+	TOPT_CLOSE
+	
 	HERE 0 L, IF_FLAG
 \	HEX f7_ed
 ; IMMEDIATE
@@ -452,12 +456,14 @@ DUP IF_FLAG = IF DROP
   DP @ THERE? 0= IF POSTPONE UNTIL EXIT THEN
   BEGIN_FLAG <> IF -2004 THROW THEN \ ABORT" UNTIL 
   ?COMP
+	TOPT_INIT
 	[RISCV]
-	a1 a0 mv,
-	a0 0 [[ s0 ]] lw, \ drop
-	s0 s0 4 addi,
-	a1 SWAP
-	beqz, [P]  
+	 $85aa W,  TOPT \	mv	a1,a0
+	'DROP	T_INLINE,
+	a1 SWAP	beqz,
+	[P]  
+	TOPT_CLOSE
+
 \  ?BRANCH,
 ; IMMEDIATE
 
@@ -511,7 +517,6 @@ DUP IF_FLAG = IF DROP
 	$4482 W, \	lw	s1,0(sp)
 	$0131 W, \	addi	sp,sp,12
    
-   
   HERE SWAP L!
  ; IMMEDIATE
 
@@ -547,14 +552,17 @@ DUP IF_FLAG = IF DROP
 	$852E W, \	c.mv	a0,a1
 ; IMMEDIATE
 
-
 : EXIT
 	?OLD EXIT	EXIT,
 ; IMMEDIATE
 
 : ; 
 	?OLD ;
-	EXIT,
+	OPT;?
+	IF	$4082 W,	\	lw	ra,0(sp)
+		$0111 W,	\	addi	sp,sp,4
+	THEN 	$8082 W,	\	ret
+
 	SMUDGE	[COMPILE] [
 ; IMMEDIATE
 
@@ -563,8 +571,10 @@ DUP IF_FLAG = IF DROP
 	  HERE 1 AND IF $FF C, THEN
 	  :#THS EXEC_BUF_SET
 	:
+ DP M@ TO :-SET	
 	$1171 W, \     	addi	sp,sp,-4
 	$c006 W, \     	sw	ra,0(sp)
+ DP M@ TO TLAST-HERE
 ;
 
 : :
@@ -572,8 +582,11 @@ DUP IF_FLAG = IF DROP
 	  HERE 1 AND IF $FF C, THEN
 	  :#THS
 	:
+ DP M@ TO :-SET	
 	$1171 W, \     	addi	sp,sp,-4
 	$c006 W, \     	sw	ra,0(sp)
+ DP M@ TO TLAST-HERE
+
 ;
 
 : IMMEDIATE  IMMEDIATE  1 TO TLASTFLG ;

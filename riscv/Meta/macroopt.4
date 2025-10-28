@@ -1,6 +1,5 @@
 \ 
 
-
 REQUIRE DUPENDCASE ~mak/case.f
 REQUIRE CS-! ~mak/ext.f
 
@@ -19,8 +18,6 @@ REQUIRE CS-! ~mak/ext.f
  L! ;
 [THEN]
 
-
-
 BASE @ HEX
 
    TRUE VALUE TOPT?
@@ -32,6 +29,8 @@ BASE @ HEX
 0x20 VALUE TMM_SIZE
 
 0 VALUE TOFF-PSP
+0 VALUE LAST-SO-ADD
+0 VALUE PENULT-SO-ADD
 
 0 VALUE TTTTTT
 
@@ -52,14 +51,32 @@ BASE @ HEX
 0 VALUE TOP0W@
 0 VALUE TOP1W@
 
-: ?HOP 0xE800 U< ;
-: ?@HOP W@ ?HOP ;
+: ?@HOP W@ 3 AND 3 <> ;
 
 : ?TSET
  DP M@
  DUP TLAST-HERE
  <>
  IF DUP TO :-SET  THEN DROP ;
+
+: c.addi@ ( cod -- cod imm ) 
+ DUP	2 >> $1F AND
+ SWAP	7 >> $20 AND OR
+ $20 XOR $20 -
+;
+
+: c.sw@ ( cod -- cod imm )
+  DUP  $4  4 << AND 4 >>
+  OVER $38 7 << AND 7 >> OR
+  OVER $40 1 >> AND 1 << OR 
+; 
+
+: !c.sw ( cod imm -- cod' )
+  SWAP 0xE39F AND
+  OVER $4 AND 4 << OR
+  OVER $38 AND 7 << OR  \ r cod+ 
+  SWAP $40 AND 1 >> OR  \ r cod+ 
+; 
 
 : ?^OP ( addr -- flg )
 \
@@ -76,7 +93,6 @@ BASE @ HEX
   2-  \ |..|..+..|
   ?@HOP \  DUP ?1OP IF DROP TRUE BREAK
 ;
-
 
 : SHORT? ( n -- -129 < n < 128 )
   0x80 + 0x100 U< ;
@@ -104,10 +120,59 @@ M\ VECT TDTST  ' DROP TO TDTST
 0 VALUE XXXLOOPAND
 VECT XXX:DO
 
-: TOS:=? ( u -- flg ) \
- DROP TRUE ;
+: NR0(s0)?  ( u -- flg )
+    CASE
+   2 TO XXXSIZE
+  DUP	C103 AND 8102 <>	IF \	c.mv	 add
+  DUP	C103 AND 4101 <>	IF \	li
+  DUP	4103 AND 4100 <>	IF \	lw sw
+  DUP	4043 AND 4040 <>	IF \	lw	x_,4+(s0)
 
-BASE ! \eof
+  DROP    FALSE
+   4 TO XXXSIZE
+ EXIT
+  DUPENDCASE DROP TRUE 
+;
+
+: TOS:=? ( u -- flg ) \
+
+    CASE
+
+   2 TO XXXSIZE
+  DUP	852E <> IF \	c.mv	a0,a1
+  DUP	E11F AND 4008 <> IF \	lw	a0,_(~a0)
+
+  DROP    FALSE
+   
+ EXIT
+  DUPENDCASE DROP TRUE ;
+
+:  XXXLOOP?	( flg cfa adr  -- flg' )
+  TO  XXXLOOPAND
+  TO  XXX:DO
+  DUP IF BREAK
+  DROP TOPN DUP ?@HOP 0= IF 2+ THEN 2+
+  BEGIN
+	DUP	XXXLOOPAND = IF DROP FALSE BREAK
+	DUP  W@  XXX:DO
+	WHILE XXXSIZE +  REPEAT
+ DROP TRUE
+;
+
+: WOPLOOK  ( n flg -- flg' )
+\ CR ."  WOPLOOK=" TOP0 H.
+  >R DUP IF RDROP NIP BREAK
+\ F7_ED
+  DROP
+ TO TOPN@ R>
+  BEGIN 2-
+	DUP W@
+	TOPN@
+ = IF \ ." <F>"
+  DUP TO TOPN ?^OP 0= BREAK
+	DUP :-SET =
+  UNTIL DROP TRUE \  ." <T>"
+;
 
 : TOPT-RULES  ( ADDR  -- ADDR' FLAG )
   TOP1 :-SET U< IF TRUE BREAK
@@ -117,6 +182,25 @@ M\ -1 TDTST
    TOP1 ?^OP
     IF
 
+	TOP1 W@ 8000 ANDC 4008 xor	\	c.(ls)w	a0,0(s0)
+	TOP0 W@ 8000 ANDC 4008 xor or \	c.(ls)w	a0,0(s0)
+0=	
+IF  M\ 8 TDTST
+	-2 allot
+    M\ 9 TDTST
+	FALSE
+BREAK
+
+	TOP1 W@ 852E xor	\	c.mv	a0,a1
+	TOP0 W@ 85AA xor or \	c.mv	a1,a0
+0=	
+IF  M\ 6 TDTST
+	." <#>"
+	-2 allot
+    M\ 7 TDTST
+	FALSE
+BREAK
+
 	TOP1W@ TOS:=?
 	TOP0W@ TOS:=? AND
 IF  M\ 4 TDTST
@@ -125,44 +209,288 @@ IF  M\ 4 TDTST
 	FALSE
 BREAK
 
-THEN
+	TOP1W@ EFC3 AND 0501 xor	\	c.addi	a0,_
+	TOP0W@ 4108 xor or 		\	c.lw	a0,0(a0)
+0=	
+IF  M\ 13 TDTST
+	." <@>"
+	TOP1 W@
+	DUP	2 >> $1F AND
+	SWAP	7 >> $20 AND OR
+	$20 XOR $20 - 
+	-4 allot
+	[RISCV] a0 SWAP [[ a0 ]]  lw, [P]
+    M\ 14 TDTST
+	FALSE
+BREAK
+
+TOP1W@ 8532 XOR		\ c.mv	a0,a2
+TOP0W@ 8D4D XOR OR	\ c.or	a0,a1
+0=
+IF  M\ 15 TDTST
+	." <o>"
+	00b66533 TOP1 L!	\ or	a0,a2,a1
+    M\ 16 TDTST
+	FALSE
+BREAK
+
+    THEN \    TOP1 ?^OP
+	
+TOP2 :-SET U< IF TRUE EXIT THEN
+TOP2 ?^OP
+    IF
+	
+TOP2 W@ C008 XOR	\ c.sw	a0,0(s0)
+TOP1W@ 85AA XOR OR	\ c.mv	a1,a0
+TOP0W@ 4008 XOR OR	\ c.lw	a0,0(s0)
+0=
+IF  M\ a TDTST
+	-2 allot
+    M\ b TDTST
+	FALSE
+BREAK
+
+TOP2 W@ C008 XOR	\ c.sw	a0,0(s0)
+\ no read a1
+TOP1W@		8532 XOR	\ c.mv	a0,a2
+TOP1W@ 4003 AND	4001 <> AND	\ c.li
+TOP1W@ C103 AND 4000 <> AND	\ c.lw
+TOP1W@ 418f AND 4108 <> AND	\ c.lw c.sw
+
+ OR
+TOP0W@ 400C XOR OR	\ c.lw	a1,0(s0)
+0=
+IF  M\ c TDTST
+	TOP2 L@ TOP1 L!
+	85AA TOP2 W!	\ c.mv	a1,a0
+	
+    M\ d TDTST
+	FALSE
+BREAK
+TOP2 W@ 852E	 XOR	\	c.mv	a0,a1
+TOP1 L@ 00054503 XOR OR	\	lbu	a0,0(a0)
+0=
+IF  M\ E TDTST
+	0005c503 TOP2 L! \    	lbu	a0,0(a1)
+	-2 ALLOT
+	
+    M\ F TDTST
+	FALSE
+BREAK
+
+TOP2 W@ C008 XOR	\ c.sw	a0,0(s0)
+TOP1W@ 4048 XOR OR	\ c.lw	a0,4(s0)
+TOP0W@ C008 XOR OR	\ c.sw	a0,0(s0)
+0=
+IF  M\ 11 TDTST
+	-2 allot
+    M\ 12 TDTST
+	FALSE
+BREAK
+
+TOP2 L@ 000fffff AND 00050513 XOR	\ addi	a0,a0, xxx
+TOP0W@ 4108 XOR OR	\ c.lw	a0,0(a0)
+0=
+IF  M\ 19 TDTST
+	2503 TOP2 W! \ lw	a0,xxx(a0)
+	-2 allot
+    M\ 1A TDTST
+	FALSE
+BREAK
+
+TOP2 W@ 0111 XOR	\ c.addi	sp,4
+TOP1W@ 157D XOR OR	\ c.addi	a0,-1
+TOP0W@ 1171 XOR OR	\ c.addi	sp,-4
+0=
+IF  M\ 1b TDTST
+	TOP1W@ TOP2 W!
+	-4 allot
+    M\ 1c TDTST
+	FALSE
+BREAK
+
+TOP2 W@	4501 XOR	\ c.li	a0,0
+TOP1W@	C008 XOR OR	\ c.sw	a0,0(s0)
+TOP0W@ TOS:=? 0= OR	\ c.mv	a0,a1
+0=
+IF  M\ 1d TDTST
+	00042023	TOP2 L! \	sw	zero,0(s0)
+    M\ 1e TDTST
+	FALSE
+BREAK
+
+	
+    THEN \    TOP2 ?^OP
+
+  TOP3 :-SET U< IF TRUE EXIT THEN
+    TOP3 ?^OP
+    IF
+
+DUP  W@ 8082 XOR 		\	ret
+TOP3 W@ 85AA XOR OR		\ c.mv	a1,a0
+TOP2 W@ C008 XOR OR		\ c.sw	a0,0(s0)
+TOP1 l@ 00B66533 XOR OR	\ or	a0,a2,a1
+0=
+IF  M\ 11 TDTST
+	TOP2 W@ TOP3 W!
+	8d51 TOP2 W! \	c.or	a0,a2
+	-4 allot
+    M\ 12 TDTST
+	FALSE
+BREAK
+
+TOP3 L@ 40A58533 XOR	\ sub	a0,a1,a0
+TOP1 l@ 40A00533 XOR OR	\ sub	a0,zero,a0
+0=
+IF  M\ 17 TDTST
+	8d0d TOP3 w! \     	c.sub	a0,a1
+	-6 allot
+    M\ 18 TDTST
+	FALSE
+BREAK
+
+
+DUP  W@ 8082 XOR 		\	ret
+TOP3 W@ 85AA XOR OR		\ c.mv	a1,a0
+TOP2 L@ 00042023 XOR OR	\ sw	zero,0(s0)
+TOP0W@ 		852E XOR OR	\ c.mv	a0,a1
+0=
+IF  M\ 1e TDTST
+	TOP2 L@ TOP3 L!
+	-4 allot
+    M\ 1f TDTST
+	FALSE
+BREAK
+
+    THEN \    TOP3 ?^OP
 
  TRUE
 ;
-
 
 : MTOPT-RULES  ( ADDR  -- ADDR' FLAG )
 \ TOP0 W@ TO TOP0W@
  TOP3  :-SET U<  IF TRUE BREAK
 
+\ 800003FE DP M@ = IF HEX F7_ED THEN
+	C008		\ c.sw	a0,0(s0)
+	TOP0W@
+	C008	XOR	\ c.sw	a0,0(s0)
+	TOP0 WOPLOOK
+	['] NR0(s0)? TOP0  XXXLOOP?
+0=
+IF  M\ 10 TDTST
+	TOPN TOPexcise
+    M\ 11 TDTST
+	FALSE
+BREAK
 
  TRUE
 ;
-
 
 : TBOPT-RULES  ( ADDR  -- ADDR' FLAG )
   TOP1 :-SET U< IF TRUE EXIT THEN
   TOP0 W@ TO TOP0W@
   TOP1 W@ TO TOP1W@
 M\ -1 TDTST
-
   TOP3 :-SET U< IF TRUE EXIT THEN
-
  TRUE
 ;
 
-: -EVEN-PSP
- ;
+: S0-EVEN? ( -- flg )
+  LAST-SO-ADD 2+ \ F7_ED
+  BEGIN 
+    DUP DP M@ = IF DROP FALSE BREAK
+	DUP L@
+	DUP 0001EFFF AND 00014503 = M_WL DROP 4+ REPEAT \ l(bh)u	a0,0(~s0)
+	DUP 01FFF07F AND 00042023 = M_WL DROP 4+ REPEAT \ 	sw	zero,_(s0)
+	DROP
+	DUP W@
+	DUP  $1f AND  $13 = M_WL DROP 4+ REPEAT \ r-type i-type
+	DUP E903 AND 8101 = M_WL DROP 2+ REPEAT \ c.srli c.srli64
+	DUP c103 AND 4101 = M_WL DROP 2+ REPEAT \ li lui
+	DUP c103 AND 4102 = M_WL DROP 2+ REPEAT \ lwsp
+	DUP e103 AND 0101 = M_WL DROP 2+ REPEAT \ addi
 
-: EVEN-PSP ;
+	DUP $6383 AND $4000 = WHILE  \ c.sw	x_, _ (s0) \  F7_ED
+		c.sw@ NIP TOFF-PSP	- $7F ANDC
+		IF	 DROP TRUE
+		BREAK 2+
+    REPEAT
+  2DROP TRUE
+;
+
+: S0-EVEN-DO ( -- flg )
+  LAST-SO-ADD
+  :-SET
+  U< IF FALSE BREAK
+  LAST-SO-ADD W@ c.addi@ TOFF-PSP - ABS $1F ANDC IF FALSE BREAK
+  S0-EVEN? \  1 OR 
+  IF FALSE BREAK
+
+  8 LAST-SO-ADD W@ c.addi@ TOFF-PSP + [RISCV] >C.LI [P] 1 OR  LAST-SO-ADD W!
+  
+  LAST-SO-ADD 2+
+  BEGIN
+   DUP DP M@
+ = IF DROP 0 TO TOFF-PSP TRUE BREAK
+	DUP L@
+	DUP 0001EFFF AND 00014503 = M_WL DROP 4+ REPEAT \ l(bh)u	a0,0(~s0)
+	DUP 01FFF07F AND 00042023 = M_WL \ 	sw	zero,_(s0)
+	F7_ED
+	DUP FE000000 AND
+	OVER F80
+	AND $D << OR  \ cod imm<<$14
+	TOFF-PSP $14
+	<<
+	-
+	DUP  FE000000 AND
+	SWAP  1F00000 AND $D >> OR \ adr cod imm31:25..11:7
+	SWAP FE000F80 ANDC OR \  \ 	sw	zero,_-TOFF-PSP(s0)
+	OVER L!	
+	4+ REPEAT
+	DROP
+	DUP W@
+	DUP  $1f AND  $13 = M_WL DROP 4+ REPEAT \ r-type i-type
+	DUP E903 AND 8101 = M_WL DROP 2+ REPEAT \ c.srli c.srli64
+	DUP c103 AND 4101 = M_WL DROP 2+ REPEAT \ li lui
+	DUP c103 AND 4102 = M_WL DROP 2+ REPEAT \ lwsp
+	DUP e103 AND 0101 = M_WL DROP 2+ REPEAT \ addi
+
+	DUP $6383 AND $4000 = WHILE  \ c.sw	x_, _ (s0) \  F7_ED
+		c.sw@  TOFF-PSP	- !c.sw OVER W! 2+
+    REPEAT
+  1 ABORT" S0-EVEN-DO CODE"
+  
+;
+
+: -EVEN-PSP
+     TOP0 :-SET U< IF BREAK
+     TOP0 W@ 0xEF83 AND 0401 =   \ c.addi	s0,0
+     IF \  f7_ed
+     PENULT-SO-ADD
+     TO LAST-SO-ADD
+		TOP0 W@ c.addi@	TO TOFF-PSP -2 ALLOT
+     THEN
+;
+
+: EVEN-PSP
+ TOFF-PSP
+   IF \   f7_ed
+	S0-EVEN-DO IF BREAK
+	LAST-SO-ADD TO PENULT-SO-ADD
+    DP M@
+ TO LAST-SO-ADD
+	8  TOFF-PSP [RISCV] >C.LI [P] 1 OR W, \   c.addi	s0, OFF-S0
+      0 TO TOFF-PSP
+   THEN
+;
 
 : TOPT_  ( -- )
  BEGIN
  BEGIN
   TOPT-RULES UNTIL
  MTOPT-RULES UNTIL
-
-  EVEN-PSP  ;
+;
 
 : DO_TOPT   ( ADDR -- ADDR' )
   TOPT? IF TOPT_ THEN ;
@@ -182,25 +510,70 @@ M\ -1 TDTST
 
 : TBOPT   ( -- )  'OVER DO_TBOPT DROP  ;
 
+: TL_INLINE? ( CFA CFA+  -- CFA CFA+ FLAG )
+ DUP L@
+ DUP $3f AND	$33 =	IF DROP 4+ TRUE BREAK \ 	r-type
+ DUP $00054503 =	IF DROP 4+ TRUE BREAK \ 	lbu	a0,0(a0)
+ DROP
+ FALSE
+;
+
 : TINLINE?  ( CFA -- CFA FLAG )
+  DUP        BEGIN
+  2DUP
+  TMM_SIZE -   U> 0= IF 
+  DROP FALSE
+  BREAK
+
+ DUP W@ 
+ DUP 3 AND 3 = M_WL DROP \ F7_ED
+	TL_INLINE? 0= IF DROP 0 BREAK
+ REPEAT
+ DUP	8082 =	IF 2DROP  TRUE BREAK \	ret
+ 
+  DUP  4003 AND 4000 =  M_WL DROP  2+  REPEAT \ lw flw sw fsw
+  DUP  6423 AND 0422 =  M_WL DROP  2+  REPEAT \ c.slli c.mv c.add
+  DUP  F503 AND 0502 =  M_WL DROP  2+  REPEAT \ c.slli c.slli64
+  DUP  E903 AND 8101 =  M_WL DROP  2+  REPEAT \ c.srli c.srli64
+  DUP  e103 AND 0101 =  M_WL DROP  2+  REPEAT \  c.addi	sp ...
+  DUP  c023 AND C022 =  M_WL DROP  2+  REPEAT \ c.swsp	x_,0(sp) ~ra
+  DUP  c403 AND 4402 =  M_WL DROP  2+  REPEAT \ c.lwsp	x_,0(sp) ~ra
+  DUP  E003 AND 8001 =  M_WL DROP  2+  REPEAT \ c.or c.ori
+  
+      a403 AND	  0401 =	  WHILE   2+  REPEAT \ c.addi c.li
+
+   DROP           
  FALSE  EXIT
 ;
 
 : T_INLINE,  (  CFA  --  )
-\  ." ^" DUP H. HEX
+
 	BEGIN
   DO_TOPT
-  DUP 1- W@      \  CFA  N'
-  DUP 0x4770 = IF 2DROP     EXIT THEN \ BX	R14
-  DUP ?HOP M_WL  W, 2+ REPEAT
-   OVER 1+ W@ 0x10 LSHIFT OR L, 4 +
+   DUP W@
+  DUP	8082 =	IF 2DROP  BREAK \	ret
+  
+	DUP $6383 AND $4000 = M_WL  \ c.sw	x_, _ (s0) \  F7_ED
+		c.sw@  TOFF-PSP	+		\ cod imm 
+		DUP 0< IF DROP EVEN-PSP
+		ELSE !c.sw
+		THEN  W, 2+
+	REPEAT
+	DUP 0xEF83 AND 0401 = M_WL  \ c.addi	s0,0
+
+	c.addi@	TOFF-PSP + TO TOFF-PSP
+	2+
+	REPEAT
+
+	DUP 3 AND 3 = IF W, 2+ DUP W@ THEN
+
+    W, 2+
 	AGAIN
 ;
 
 : TOPT_CLOSE
    EVEN-PSP
- DP M@
- TO TLAST-HERE
+ DP M@ TO TLAST-HERE
  ;
 
 : TOPT; TOPT  TOPT_CLOSE ;
@@ -214,11 +587,30 @@ M\ -1 TDTST
   T_INLINE,
   TOPT_CLOSE ;
 
+: OPT;? ( -- flg ) \ removing an extra nest
+	:-SET L@ C0061171 <> IF -1 BREAK \ c.addi	sp,-4	c.swsp	ra,0(sp)
+	:-SET 4+
+	BEGIN
+ DUP DP M@ = IF
+ :-SET 4 + :-SET
+ ROT OVER -  CMOVE
+  -4 ALLOT
+ 0
+ BREAK \ NEST DELETE
+ DUP W@
+
+  DUP  4003 AND 4000 =  M_WL DROP  2+  REPEAT \ lw flw sw fsw
+  DUP  6423 AND 0422 =  M_WL DROP  2+  REPEAT \ c.slli c.mv c.add
+      a403 AND	  0401 =	  WHILE   2+  REPEAT \ c.addi c.li
+  DROP   -1 
+;
+
 M\  30 VALUE MAXROOL CREATE ROOLSTAT   MAXROOL 1+ CELLS ALLOT
 M\ :  &TDTST  DUP 1 AND 0= IF  DUP MAXROOL 1+ MIN 2*  ROOLSTAT + 1+!  THEN DROP ;  ' &TDTST TO TDTST
 M\ :  RSTAT  MAXROOL 1+ 0 DO CR I H. ROOLSTAT I 2* + L@ . 2 +LOOP  ;
 
  BASE !
 
-\  38 TDTST 
+\  1b TDTST
 \ [ ' DoTDTST TO TDTST ]
+
