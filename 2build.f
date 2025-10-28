@@ -40,4 +40,6 @@ riscv\src.f
 TSAVE forth.elf
 
 .( TSAVE OK ) MCR
+\ RSTAT
  BYE
+
