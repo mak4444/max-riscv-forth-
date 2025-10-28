@@ -1,5 +1,4 @@
 
-
 : GET-CURRENT ( -- wid ) \ 94 SEARCH
   CURRENT @ ;
 
@@ -204,6 +203,7 @@ T: DOES>
 3	CONSTANT BEGIN_FLAG
 7	CONSTANT DO_FLAG1
 
+
 : AHEAD HERE 0 W, HEAD_FLAG	; IMMEDIATE
 
 T: IF
@@ -374,6 +374,10 @@ T: PREVIOUS ( --- )
  1-
 ;
 
+T: DEFINITIONS  ( --- )
+\ Set the definitions wordlist to the last wordlist in the search order.
+  CONTEXT @ CURRENT ! ;
+
 : SET-ORDER
   DUP -1 = IF DROP ONLY BREAK
   DUP 0= IF CONTEXT ! BREAK
@@ -382,7 +386,6 @@ T: PREVIOUS ( --- )
      DUP CELL+ 0!  !
   LOOP
 ;
-
 
 T: ORDER ( -- ) \ 94 SEARCH EXT
   GET-ORDER ." Context: "

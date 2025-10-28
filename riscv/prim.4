@@ -29,14 +29,18 @@ CODE ?DUP
 CODL DUP
 	DUP,
 0:	ret
-END-CODE	
+END-CODE
+
+' DUP TO 'DUP
 
 CODE DROP
 	lw	a0,(s0)
 CODL NIP
 	addi	s0,s0,4
 	ret
-END-CODE	
+END-CODE
+
+' DROP TO 'DROP
 
 CODE OVER
 	DUP,
@@ -177,22 +181,22 @@ CODE U/
 END-CODE
 
 CODE MOD
-	lw		a1,0(s0)
-	rem		a0,a1,a0
+	lw	a1,0(s0)
+	rem	a0,a1,a0
 	addi	s0,s0,4
 	ret
 END-CODE
 
 CODE OR
-	lw		a1,0(s0)
-	or		a0,a0,a1
+	lw	a1,0(s0)
+	c.or	a0,a1
 	addi	s0,s0,4
 	ret
 END-CODE	
 
 CODE XOR
 	lw	a1,0(s0)
-	xor	a0,a0,a1
+	c.xor	a0,a1
 	addi	s0,s0,4
 	ret
 END-CODE	
@@ -201,7 +205,7 @@ CODE ANDC
 	not	a0,a0
 CODL AND
 	lw	a1,0(s0)
-	and	a0,a0,a1
+	c.and	a0,a1
 	addi	s0,s0,4
 	ret
 END-CODE	
@@ -339,7 +343,7 @@ CODE =		( a b -- f )
 \  If n is equal to 0, return TRUE. Otherwise FALSE.
 CODL 0=		( a -- f )
 	seqz	a0,a0
-CODL NEGATE	
+CODL NEGATE
 	neg	a0,a0
 	ret
 END-CODE
@@ -484,13 +488,13 @@ END-CODE
 
 CODE DUP>R	( N -- N )
 	addi	sp,sp,-4
-	sw		a0,0(sp)
+	sw	a0,0(sp)
 	ret
 END-CODE
 
 CODE >R	( N --  )
 	addi	sp,sp,-4
-	sw		a0,0(sp)
+	sw	a0,0(sp)
 	DROP,
 	ret
 END-CODE

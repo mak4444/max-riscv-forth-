@@ -1,6 +1,39 @@
 
 0 [if]
+
 CODE TCT
+0:
+____:	00000063          	beqz	zero,0b
+____:	000000e3          	beqz	zero, 0b 0x804 +
+____:	00000163          	beqz	zero, 0b 0xa +
+____:	00000263          	beqz	zero, 0b 0x10 +
+____:	00000463          	beqz	zero, 0b 0x18 +
+____:	00000863          	beqz	zero, 0b 0x24 +
+____:	00010063          	beqz	sp, 0b 0x18 +
+____:	00020063          	beqz	tp, 0b 0x1c +
+8000:	00040063          	beqz	s0, 0b 0x20 +
+____:	00080063          	beqz	a6, 0b 0x24 +
+____:	00100063          	beq	zero,ra, 0b 0x28 +
+____:	00200063          	beq	zero,sp, 0b 0x2c +
+____:	00400063          	beq	zero,tp, 0b 0x30 +
+____:	00800063          	beq	zero,s0, 0b 0x34 +
+____:	01000063          	beq	zero,a6, 0b 0x38 +
+____:	02000063          	beqz	zero, 0b 0x5c +
+____:	04000063          	beqz	zero, 0b 0x80 +
+____:	08000063          	beqz	zero, 0b 0xc4 +
+____:	10000063          	beqz	zero, 0b 0x148 +
+____:	20000063          	beqz	zero, 0b 0x24c +
+____:	40000063          	beqz	zero, 0b 0x450 +
+____:	80000063          	beqz	zero, 0b 0x054 + 0x1000 -
+
+	sw	zero,0x400(s0)
+	sw	zero,-0x400(s0)
+____:	8d4d                	or	a0,a0,a1
+____:	c002                	sw	zero,0(sp)
+____:	c000                	sw	s0,0(s0)
+____:	c008                	sw	a0,0(s0)
+____:	c00a                	sw	sp,0(sp)
+____:	c02a                	sw	a0,0(sp)
 
 	bltz	x28,here
 	bltz	s11,here

@@ -1,4 +1,8 @@
 
+: TST2
+\  [ ' DoTDTST TO TDTST ]
+  HANDLER @
+ NEGATE ;
 : 2DUP OVER OVER ;
 : TUCK SWAP OVER ;
 
@@ -9,9 +13,7 @@
 : CR $D EMIT  $A EMIT ;
 : SPACE $20 EMIT ;
 
-: HHH.
-
-  $f AND DUP 9 > IF 'A' 10 - ELSE '0' THEN +  EMIT ;
+: HHH.  $f AND DUP 9 > IF 'A' 10 - ELSE '0' THEN +  EMIT ;
 
 : HH.
 
@@ -25,22 +27,24 @@
 ;
 
 : /STRING DUP>R - SWAP R> + SWAP ;
+
 : WITHIN  ( n lo hi+1 -- flag )  OVER -  >R  -  R> U< ;
+
 VARIABLE SP0
 : DEPTH ( -- n ) \ 94
   SP@ SP0 @ - NEGATE 2 ARSHIFT ;
 
 : ZTYPE ( zadr -- )
+\  BEGIN COUNT [ f7_ed ] DUP WHILE EMIT REPEAT 2DROP
   BEGIN COUNT DUP WHILE EMIT REPEAT 2DROP
 ;
 
 : TYPE ( c-addr1 u --- )
 \ Output the string starting at c-addr and length u to the terminal.
   OVER + SWAP BEGIN 2DUP -  
- WHILE DUP W@ EMIT 1+
+ WHILE DUP C@ EMIT 1+
  REPEAT
  2DROP ;
-
 
 : COMPARE ( addr1 u1 addr2 u2 --- diff )
 \ Compare two strings. diff is negative if addr1 u1 is smaller, 0 if it
@@ -322,7 +326,6 @@ T: FORTH FORTH-WORDLIST CONTEXT ! ;
 ATIB VALUE TIB
 : SOURCE TIB  #TIB @ ;
 
-
 : ACCEPT1 ( C-ADDR +N -- +N' ) \ GET LINE FROM TERM'L
    OVER + 1- OVER      \ SA EA A
    BEGIN
@@ -377,6 +380,7 @@ ATIB VALUE TIB
 	WHILE	>IN 1+!
 	REPEAT >IN @   >IN_WORD ! ;
 
+
 : OnNotDelimiter ( -- flag )
   GetChar SWAP IsDelimiter 0= AND ;
 
@@ -384,7 +388,6 @@ ATIB VALUE TIB
  BEGIN	OnNotDelimiter
  WHILE	>IN 1+!
  REPEAT ;
-
 
 : ParseWord ( -- c-addr u )
  CharAddr
@@ -448,7 +451,7 @@ T: , HERE ! CELL ALLOT ;
 ;
 
 : [LIT,] R> DUP @ SWAP CELL+ >R ;
-
+ 
 : LIT, ( n -- ) ['] [LIT,] COMPILE, , ;
 
 : DIGIT ( C, N1 -> N2, TF / FF ) 
@@ -591,7 +594,10 @@ VARIABLE &?MINUS
             STATE @ IF LIT, THEN RDROP RDROP  EXIT
          THEN 
 
-     2DROP 2R>
+     2DROP
+
+     2R>
+
   THEN
 
   2DUP 2>R 
@@ -682,12 +688,14 @@ T: ['] '  LIT, ; IMMEDIATE
 
 : ID. COUNT TYPE SPACE ;
 
+
 : WORDS
   CONTEXT @ @
  BEGIN DUP
  WHILE DUP ID. CDR
  REPEAT DROP ;
 
+1 to TTTTTT
 
 ICREATE title_string S" Risc V Forth" $,  $A C,  0 C,
 
