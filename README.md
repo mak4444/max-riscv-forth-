@@ -2,7 +2,8 @@
 
   in \riscv files with  _AL prefix - listing
 
-  For trace the compilation process, use the F7_ED command 
+  For trace the compilation process, use the F7_ED command.
+  
   To observe the optimization process, insert:
   
   [ ' DoTDTST TO TDTST ]
